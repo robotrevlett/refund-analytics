@@ -17,6 +17,7 @@ import {
   startBulkSync,
   pollBulkOperation,
   processCompletedSync,
+  markSyncFailed,
 } from "../models/sync.server.js";
 import { AppBanners } from "../components/AppBanners.jsx";
 
@@ -35,6 +36,8 @@ export const loader = async ({ request }) => {
       const opStatus = await pollBulkOperation(admin, syncStatus.operationId);
       if (opStatus.status === "COMPLETED" && opStatus.url) {
         await processCompletedSync(admin, shop, opStatus.url);
+      } else if (opStatus.status === "FAILED" || opStatus.status === "CANCELED") {
+        await markSyncFailed(shop);
       }
     } catch (error) {
       console.error("Sync processing error:", error);
