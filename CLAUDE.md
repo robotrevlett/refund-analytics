@@ -1,0 +1,177 @@
+# CLAUDE.md — Refund & Return Analytics (Shopify App)
+
+## Project Overview
+
+Shopify app that shows merchants their real revenue after refunds. Built with Remix + Shopify CLI template, Polaris UI, Prisma ORM, GraphQL Admin API.
+
+See `SPEC.md` for the full product spec.
+
+## Commands
+
+```bash
+# Development
+shopify app dev                    # Run locally with Cloudflare tunnel
+npm run dev                        # Run Remix dev server only (no Shopify tunnel)
+
+# Database
+npx prisma migrate dev             # Run migrations
+npx prisma generate                # Regenerate Prisma client after schema changes
+npx prisma studio                  # Visual DB inspector
+
+# Testing
+npm test                           # Run all tests (vitest)
+npx vitest run                     # Run once (CI mode)
+npx vitest run tests/unit          # Unit tests only
+npx vitest run tests/integration   # Integration tests only
+npx vitest run --coverage          # With coverage report
+
+# Test data
+node tests/fixtures/generate.js    # Generate test fixtures
+node tests/fixtures/seed.js        # Seed test DB with fixtures
+
+# Shopify CLI
+shopify app deploy                 # Push config (scopes, webhooks) to Shopify
+shopify app generate extension     # Generate an app extension
+```
+
+## Architecture
+
+### Directory Layout
+```
+app/
+├── routes/           # Remix routes (file-based routing)
+│   ├── app.jsx       # Layout wrapper (App Bridge + Polaris provider)
+│   ├── app._index.jsx    # Dashboard page
+│   ├── app.products.jsx  # Product breakdown page
+│   ├── app.returns.jsx   # Return reason analytics page
+│   ├── app.sync.jsx      # Data sync status + trigger
+│   ├── app.settings.jsx  # App settings
+│   ├── auth.$.jsx        # OAuth catch-all (required by Shopify)
+│   └── webhooks.jsx      # Webhook handler (action-only route)
+├── models/           # Data access layer (Prisma queries, sync logic)
+├── components/       # Shared Polaris-based UI components
+├── shopify.server.js # Shopify app config, auth, session storage
+└── db.server.js      # Prisma client singleton
+```
+
+### Key Patterns
+
+**Route loaders** fetch data, **route actions** handle mutations:
+```js
+export async function loader({ request }) {
+  const { admin } = await authenticate.admin(request);
+  // Use admin.graphql() for Shopify API calls
+  // Use db for Prisma queries
+  return json({ data });
+}
+
+export async function action({ request }) {
+  const { admin } = await authenticate.admin(request);
+  // Handle form submissions, sync triggers, etc.
+  return json({ result });
+}
+```
+
+**GraphQL calls** use the authenticated admin client:
+```js
+const response = await admin.graphql(`#graphql
+  query { shop { name } }
+`);
+const { data } = await response.json();
+```
+
+**Webhook handling** uses authenticate.webhook:
+```js
+export async function action({ request }) {
+  const { topic, shop, payload } = await authenticate.webhook(request);
+  // topic is SCREAMING_SNAKE_CASE: "REFUNDS_CREATE", "APP_UNINSTALLED"
+}
+```
+
+### Data Sync (Critical Constraint)
+
+Shopify Bulk Operations API **cannot nest connections inside list fields**. `Order.refunds` is a list, so `refundLineItems` (a connection) can't be fetched in bulk.
+
+**Two-phase sync**:
+1. Bulk query: orders + refund summaries (id, date, total, note)
+2. Paginated detail: for each refund, fetch line items individually
+
+This is the core architectural constraint — do not try to fetch refundLineItems in a bulk operation.
+
+### Database
+
+- **Prisma** with SQLite (dev) / PostgreSQL (prod)
+- Schema at `prisma/schema.prisma`
+- Key models: `Session`, `Shop`, `RefundRecord`, `ReturnReasonRecord`
+- `RefundRecord.refundDate` = the refund's createdAt, NOT the order date. This is the app's core differentiator.
+- `RefundRecord.lineItems` is a JSON string — parse with `JSON.parse()` when reading
+
+## Shopify API Reference
+
+### Scopes
+- `read_orders` — covers orders, refunds, returns, transactions
+
+### Key GraphQL Objects
+- `Order.refunds` — list of Refund objects (id, createdAt, totalRefundedSet, note)
+- `Refund.refundLineItems` — connection: which items, quantity, restockType, subtotal
+- `Refund.orderAdjustments` — structured reason: restock, damage, customer, other
+- `Refund.return` — linked Return record if refund came from a return
+- `Return.returnLineItems` — items being returned with quantities
+- `ReturnReasonDefinition` — new Jan 2026 API for structured return reasons
+
+### Bulk Operations
+```graphql
+mutation { bulkOperationRunQuery(query: "{ orders { edges { node { ... } } } }") { ... } }
+```
+- Returns JSONL file with `__parentId` linking children to parents
+- Poll via `node(id:)` query or subscribe via `bulk_operations/finish` webhook
+- Max 5 concurrent bulk ops per shop (API 2026-01+)
+
+### Webhooks (configured in shopify.app.toml)
+- `refunds/create` — new refund created
+- `orders/updated` — order state changed (catches refund additions)
+- `bulk_operations/finish` — async bulk query completed
+- `app/uninstalled` — cleanup
+- GDPR: `customers/data_request`, `customers/redact`, `shop/redact`
+
+## Testing
+
+### Framework
+- **Vitest** for test runner
+- **@testing-library/react** for component rendering
+- **MSW (Mock Service Worker)** for intercepting Shopify GraphQL calls
+- **SQLite in-memory** for test database
+
+### Test Data
+- Fixtures at `tests/fixtures/` — orders, refunds, returns, JSONL samples
+- Generator script at `tests/fixtures/generate.js`
+- Covers edge cases: partial refunds, multi-refunds, $0 restocks, multi-currency, refund date != order date
+
+### Running Tests
+Always run `npm test` after making changes. All tests must pass before committing.
+
+### Key Invariants to Assert
+1. Net revenue = Gross sales - Total refunds (per date range)
+2. Refunds are always grouped by refund date, never order date
+3. Per-product refund sums equal total refunds
+4. JSONL parser gracefully handles malformed/missing data
+5. Webhook payloads correctly map to DB records
+
+## Style Guide
+
+- Use Polaris components for all UI — never raw HTML/CSS
+- Use `#graphql` tagged template prefix for GraphQL queries (enables syntax highlighting)
+- Server-only code in `.server.js` files (Remix convention)
+- Keep route files focused on loader/action/component — extract logic to `models/`
+- Use Prisma for all DB access — no raw SQL
+- Format currency with `Intl.NumberFormat` using the shop's currency
+- Dates: store as UTC, display in shop's timezone
+
+## Don'ts
+
+- Don't use REST Admin API — it's deprecated (Oct 2024)
+- Don't try to fetch refundLineItems in bulk operations (API limitation)
+- Don't show refunds by order date — always use refund date
+- Don't store sensitive data (access tokens are in Session model, managed by Shopify library)
+- Don't skip GDPR webhook handlers — required for app store approval
+- Don't use `@shopify/polaris` v11 patterns — we're on v12+ (BlockStack, not Stack)
