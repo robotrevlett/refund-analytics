@@ -45,6 +45,7 @@ Store info, sync status, and data summary counts.
 | UI | [Polaris](https://polaris.shopify.com/) v13 |
 | Database | [Prisma](https://www.prisma.io/) + PostgreSQL ([Neon](https://neon.tech/) serverless) |
 | API | Shopify GraphQL Admin API (October 2025) |
+| Charts | [Recharts](https://recharts.org/) (SVG bar charts styled with Polaris CSS vars) |
 | Testing | [Vitest](https://vitest.dev/) (unit/integration) + [Playwright](https://playwright.dev/) (e2e) |
 | CI/CD | GitHub Actions |
 
@@ -169,7 +170,6 @@ tests/
 ## Known Limitations
 
 - **No data reconciliation on re-sync** — If a refund is deleted in Shopify, re-syncing will not remove it from the app's database. A full reset (clearing data in Settings) and re-sync is needed.
-- **Simple chart rendering** — The refund trend chart uses basic horizontal bars, not a full charting library. Adequate for trend visualization but not interactive or exportable.
 
 ## Deployment
 
