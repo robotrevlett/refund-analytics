@@ -1,5 +1,12 @@
-import { describe, it, expect } from "vitest";
-import { parseJSONL } from "../../app/models/sync.server.js";
+import { describe, it, expect, beforeEach } from "vitest";
+import { PrismaClient } from "@prisma/client";
+import { parseJSONL, startBulkSync } from "../../app/models/sync.server.js";
+
+const SHOP = "sync-test-store.myshopify.com";
+
+function getDb() {
+  return global.__testPrisma || new PrismaClient();
+}
 
 describe("parseJSONL", () => {
   it("parses valid JSONL with parent-child relationships", () => {
@@ -80,5 +87,97 @@ describe("parseJSONL", () => {
     // Orphaned child should still be in the records, just without parent linkage
     const records = parseJSONL(jsonl);
     expect(records).toHaveLength(2);
+  });
+});
+
+describe("startBulkSync", () => {
+  let db;
+
+  beforeEach(async () => {
+    db = getDb();
+  });
+
+  it("returns early if sync is already running", async () => {
+    // Set up a shop with syncStatus "running"
+    await db.shop.create({
+      data: {
+        id: SHOP,
+        currency: "USD",
+        syncStatus: "running",
+        syncOperationId: "gid://shopify/BulkOperation/111",
+      },
+    });
+
+    // admin mock should never be called
+    const admin = {
+      graphql: () => {
+        throw new Error("graphql should not be called when sync is already running");
+      },
+    };
+
+    const result = await startBulkSync(admin, SHOP);
+
+    expect(result.success).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].message).toBe("Sync already in progress");
+
+    // Verify the existing operation ID was not overwritten
+    const shop = await db.shop.findUnique({ where: { id: SHOP } });
+    expect(shop.syncOperationId).toBe("gid://shopify/BulkOperation/111");
+  });
+
+  it("allows sync to start when status is not running", async () => {
+    await db.shop.create({
+      data: {
+        id: SHOP,
+        currency: "USD",
+        syncStatus: "completed",
+      },
+    });
+
+    const admin = {
+      graphql: async () => ({
+        json: async () => ({
+          data: {
+            bulkOperationRunQuery: {
+              bulkOperation: { id: "gid://shopify/BulkOperation/222", status: "CREATED" },
+              userErrors: [],
+            },
+          },
+        }),
+      }),
+    };
+
+    const result = await startBulkSync(admin, SHOP);
+
+    expect(result.success).toBe(true);
+    expect(result.operationId).toBe("gid://shopify/BulkOperation/222");
+
+    const shop = await db.shop.findUnique({ where: { id: SHOP } });
+    expect(shop.syncStatus).toBe("running");
+    expect(shop.syncOperationId).toBe("gid://shopify/BulkOperation/222");
+  });
+
+  it("allows sync to start for a new shop", async () => {
+    const newShop = "brand-new-store.myshopify.com";
+    const admin = {
+      graphql: async () => ({
+        json: async () => ({
+          data: {
+            bulkOperationRunQuery: {
+              bulkOperation: { id: "gid://shopify/BulkOperation/333", status: "CREATED" },
+              userErrors: [],
+            },
+          },
+        }),
+      }),
+    };
+
+    const result = await startBulkSync(admin, newShop);
+
+    expect(result.success).toBe(true);
+
+    const shop = await db.shop.findUnique({ where: { id: newShop } });
+    expect(shop.syncStatus).toBe("running");
   });
 });
