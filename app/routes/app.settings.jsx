@@ -14,6 +14,7 @@ import {
 import { authenticate } from "../shopify.server.js";
 import { getShopSyncStatus } from "../models/sync.server.js";
 import db from "../db.server.js";
+import { AppBanners } from "../components/AppBanners.jsx";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -48,8 +49,10 @@ export default function SettingsPage() {
   const { shop, syncStatus, dataCounts } = useLoaderData();
 
   return (
-    <Page title="Settings" backAction={{ url: "/app" }}>
-      <Layout>
+    <>
+      <AppBanners />
+      <Page title="Settings" backAction={{ url: "/app" }}>
+        <Layout>
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
@@ -118,7 +121,8 @@ export default function SettingsPage() {
             </BlockStack>
           </Card>
         </Layout.Section>
-      </Layout>
-    </Page>
+        </Layout>
+      </Page>
+    </>
   );
 }

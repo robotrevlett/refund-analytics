@@ -20,6 +20,7 @@ import {
 } from "../models/return-reason.server.js";
 import { parseDays } from "../utils.server.js";
 import { DateRangeSelector } from "../components/DateRangeSelector.jsx";
+import { AppBanners } from "../components/AppBanners.jsx";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -47,17 +48,22 @@ export default function ReturnsPage() {
 
   if (!isBeta && planName !== "Pro") {
     return (
-      <Page title="Return Reason Analytics" backAction={{ url: "/app" }}>
-        <Banner title="Pro Plan Required" tone="warning">
-          <p>Return Reason Analytics is available on the Pro plan. Upgrade in the Shopify admin to access detailed return reason tracking.</p>
-        </Banner>
-      </Page>
+      <>
+        <AppBanners />
+        <Page title="Return Reason Analytics" backAction={{ url: "/app" }}>
+          <Banner title="Pro Plan Required" tone="warning">
+            <p>Return Reason Analytics is available on the Pro plan. Upgrade in the Shopify admin to access detailed return reason tracking.</p>
+          </Banner>
+        </Page>
+      </>
     );
   }
 
   return (
-    <Page title="Return Reason Analytics" backAction={{ url: "/app" }}>
-      <BlockStack gap="500">
+    <>
+      <AppBanners />
+      <Page title="Return Reason Analytics" backAction={{ url: "/app" }}>
+        <BlockStack gap="500">
         <Box paddingInlineEnd="300">
           <InlineGrid columns="1fr auto" alignItems="center">
             <Text variant="headingMd" as="h2">Return Reasons</Text>
@@ -155,7 +161,8 @@ export default function ReturnsPage() {
             </Card>
           </Layout.Section>
         </Layout>
-      </BlockStack>
-    </Page>
+        </BlockStack>
+      </Page>
+    </>
   );
 }

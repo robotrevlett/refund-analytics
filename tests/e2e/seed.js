@@ -13,13 +13,15 @@ export async function seedE2EData() {
     await db.shop.deleteMany();
     await db.session.deleteMany();
 
-    // Create shop
+    // Create shop — installedAt set 15 days ago so ReviewPrompt is testable
+    const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
     await db.shop.create({
       data: {
         id: SHOP,
         currency: "USD",
         syncStatus: "completed",
         lastSyncAt: new Date(),
+        installedAt: fifteenDaysAgo,
       },
     });
 

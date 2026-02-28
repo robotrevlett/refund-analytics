@@ -6,8 +6,6 @@ import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { authenticate } from "../shopify.server.js";
 import db from "../db.server.js";
 import { syncSubscriptionStatus } from "../models/billing.server.js";
-import { BetaBanner } from "../components/BetaBanner.jsx";
-import { ReviewPrompt } from "../components/ReviewPrompt.jsx";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
@@ -64,9 +62,7 @@ export default function App() {
         <Link to="/app/sync">Data Sync</Link>
         <Link to="/app/settings">Settings</Link>
       </ui-nav-menu>
-      {isBeta && <BetaBanner />}
-      <ReviewPrompt installedAt={installedAt} />
-      <Outlet context={{ planName, isBeta }} />
+      <Outlet context={{ planName, isBeta, installedAt }} />
     </AppProvider>
   );
 }

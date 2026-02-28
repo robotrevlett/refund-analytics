@@ -18,6 +18,7 @@ import {
   pollBulkOperation,
   processCompletedSync,
 } from "../models/sync.server.js";
+import { AppBanners } from "../components/AppBanners.jsx";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -64,8 +65,10 @@ export default function SyncPage() {
   };
 
   return (
-    <Page title="Data Sync" backAction={{ url: "/app" }}>
-      <Layout>
+    <>
+      <AppBanners />
+      <Page title="Data Sync" backAction={{ url: "/app" }}>
+        <Layout>
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
@@ -126,7 +129,8 @@ export default function SyncPage() {
             </BlockStack>
           </Card>
         </Layout.Section>
-      </Layout>
-    </Page>
+        </Layout>
+      </Page>
+    </>
   );
 }
