@@ -1,8 +1,5 @@
 import { beforeAll, afterAll, afterEach } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { execSync } from "child_process";
-import { existsSync, unlinkSync } from "fs";
-import { resolve } from "path";
 
 // Mock window.matchMedia for Polaris (called at module load time)
 if (typeof window !== "undefined" && !window.matchMedia) {
@@ -35,31 +32,18 @@ if (typeof globalThis !== "undefined") {
   globalThis.localStorage = localStorageMock;
 }
 
-const TEST_DB_PATH = resolve("prisma/test.db");
-const TEST_DB_URL = `file:${TEST_DB_PATH}`;
-
 let prisma;
 
 beforeAll(async () => {
-  // Set test DB URL
-  process.env.DATABASE_URL = TEST_DB_URL;
-
-  // Clean up any existing test DB
-  for (const suffix of ["", "-journal", "-wal", "-shm"]) {
-    const path = TEST_DB_PATH + suffix;
-    if (existsSync(path)) {
-      try { unlinkSync(path); } catch {}
-    }
+  // DATABASE_URL is set via vite.config.js test.env
+  // Migrations must be applied before running tests (via npm run test:migrate)
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    throw new Error("DATABASE_URL must be set for tests (see vite.config.js test.env)");
   }
 
-  // Run migrations on test DB
-  execSync("npx prisma migrate deploy", {
-    env: { ...process.env, DATABASE_URL: TEST_DB_URL },
-    stdio: "pipe",
-  });
-
   prisma = new PrismaClient({
-    datasources: { db: { url: TEST_DB_URL } },
+    datasources: { db: { url: dbUrl } },
   });
 
   await prisma.$connect();
@@ -83,13 +67,5 @@ afterEach(async () => {
 afterAll(async () => {
   if (prisma) {
     await prisma.$disconnect();
-  }
-
-  // Clean up test DB
-  for (const suffix of ["", "-journal", "-wal", "-shm"]) {
-    const path = TEST_DB_PATH + suffix;
-    if (existsSync(path)) {
-      try { unlinkSync(path); } catch {}
-    }
   }
 });

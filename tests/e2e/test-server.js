@@ -5,13 +5,13 @@
  * Usage: node tests/e2e/test-server.js
  */
 import { execSync } from "child_process";
-import { resolve } from "path";
 import { seedE2EData } from "./seed.js";
 
-const DB_PATH = resolve("prisma/e2e-test.db");
-
-// Set up environment
-process.env.DATABASE_URL = `file:${DB_PATH}`;
+// Set up environment — uses Neon test branch (or local Postgres)
+if (!process.env.DATABASE_URL) {
+  console.error("DATABASE_URL must be set. Point it at your Neon test branch or local Postgres.");
+  process.exit(1);
+}
 process.env.E2E_TEST = "1";
 process.env.BETA_MODE = "1";
 process.env.PORT = process.env.PORT || "3100";
@@ -19,12 +19,6 @@ process.env.SHOPIFY_API_KEY = "test-api-key";
 process.env.SHOPIFY_API_SECRET = "test-api-secret";
 process.env.SHOPIFY_APP_URL = `http://localhost:${process.env.PORT}`;
 process.env.SCOPES = "read_orders";
-
-console.log("Setting up e2e test database...");
-execSync("npx prisma migrate deploy", {
-  env: { ...process.env },
-  stdio: "pipe",
-});
 
 console.log("Seeding e2e test data...");
 await seedE2EData();

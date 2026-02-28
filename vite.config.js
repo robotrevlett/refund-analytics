@@ -48,14 +48,15 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./tests/setup.js"],
     include: ["tests/**/*.test.{js,jsx}"],
-    // Serialize test files to avoid SQLite locking issues
+    // Serialize test files to share a single Prisma client cleanly
     pool: "forks",
     poolOptions: {
       forks: { singleFork: true },
     },
     // Set DATABASE_URL before modules load so db.server.js can initialize
+    // Points to Neon test branch (or local Postgres for offline dev)
     env: {
-      DATABASE_URL: `file:${process.cwd()}/prisma/test.db`,
+      DATABASE_URL: process.env.TEST_DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/refund_analytics_test",
     },
   },
 });

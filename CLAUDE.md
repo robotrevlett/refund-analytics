@@ -111,12 +111,15 @@ The app supports a **beta mode** (`BETA_MODE=1` env var) for early tester outrea
 
 ### Database
 
-- **Prisma** with SQLite (dev) / PostgreSQL (prod)
+- **Prisma** with PostgreSQL (Neon serverless)
 - Schema at `prisma/schema.prisma`
 - Key models: `Session`, `Shop`, `OrderRecord`, `RefundRecord`, `ReturnReasonRecord`
 - `Shop.installedAt` tracks when the app was installed (used for ReviewPrompt timing)
 - `RefundRecord.refundDate` = the refund's createdAt, NOT the order date. This is the app's core differentiator.
 - `RefundRecord.lineItems` is a JSON string — parse with `JSON.parse()` when reading
+- Neon project: `solitary-snow-11607479` (us-east-2)
+- Dev branch: `main` (default), Test branch: `test`
+- Use direct (non-pooled) connections for migrations (advisory locks don't work through pooler)
 
 ## Shopify API Reference
 
@@ -149,12 +152,14 @@ mutation { bulkOperationRunQuery(query: "{ orders { edges { node { ... } } } }")
 ## Testing
 
 ### Unit & Integration (Vitest)
-- **Vitest** with singleFork pool (SQLite locking), jsdom environment
+- **Vitest** with singleFork pool, jsdom environment
 - **MSW** for intercepting Shopify GraphQL calls
-- SQLite test DB — `global.prismaClient` set in setup.js to share with model imports
+- PostgreSQL test DB (local via docker-compose, or CI service container) — `global.prismaClient` set in setup.js
 - `tests/setup.js` mocks `window.matchMedia` (for Polaris) and `localStorage` (for jsdom)
+- Default `DATABASE_URL` in vite.config.js points to `localhost:5432/refund_analytics_test`; override via `TEST_DATABASE_URL`
+- Migrations must be applied before running tests (`npx prisma migrate deploy`)
 - 67 tests across 9 files
-- Run: `npm test`
+- Run: `docker compose up -d && npm test`
 
 ### E2E (Playwright)
 - **Playwright** with Chromium, testing all pages
@@ -199,6 +204,39 @@ Run `npm run test:e2e` for e2e tests (requires the test server or uses webServer
 - **Commit messages matter.** Every commit message explains *why*, not just *what*. Use the body for context when the change isn't obvious.
 - **Atomic commits.** Each commit should be a coherent, self-contained change. Don't bundle unrelated work.
 - **Never commit without testing.** Run `npm test` before every commit. If tests don't exist yet for the code being changed, write them first.
+
+## Deployment
+
+### Hosting
+- **App**: Fly.io (free tier) — `fly.toml` in repo root
+- **Database**: Neon PostgreSQL (free tier) — project `solitary-snow-11607479`
+- **Region**: US East (iad for Fly, us-east-2 for Neon)
+
+### Deploy
+```bash
+fly deploy                         # Deploy to Fly.io
+fly secrets set DATABASE_URL="..." SHOPIFY_API_KEY="..." SHOPIFY_API_SECRET="..." SHOPIFY_APP_URL="..." BETA_MODE="1"
+```
+
+### Local Dev
+```bash
+# Option 1: Neon dev branch (recommended)
+# Set DATABASE_URL in .env to your Neon dev branch direct connection
+npm run dev
+
+# Option 2: Local Postgres via Docker
+docker compose up -d
+# Set DATABASE_URL="postgresql://postgres:postgres@localhost:5432/refund_analytics_dev"
+npm run dev
+```
+
+### Database Migrations
+```bash
+npx prisma migrate dev             # Create + apply migration (dev)
+npx prisma migrate deploy          # Apply existing migrations (prod/CI)
+```
+
+Use direct (non-pooled) Neon connection URLs for migrations — the pooler doesn't support advisory locks.
 
 ## Don'ts
 
