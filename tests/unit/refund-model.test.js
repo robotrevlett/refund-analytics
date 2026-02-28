@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { getDashboardMetrics, getTopRefundedProducts, getRefundTrend } from "../../app/models/refund.server.js";
+import { getDashboardMetrics, getTopRefundedProducts, getRefundTrend, getProductRefunds } from "../../app/models/refund.server.js";
 
 const SHOP = "test-store.myshopify.com";
 
@@ -210,6 +210,62 @@ describe("getRefundTrend", () => {
 
     // Only 2 refunds within 30 days (refund 3 is 60 days ago)
     expect(trend).toHaveLength(2);
+  });
+});
+
+describe("getProductRefunds", () => {
+  let db;
+
+  beforeEach(async () => {
+    db = getDb();
+    await seedData(db);
+  });
+
+  it("flattens refund line items into per-product rows", async () => {
+    const rows = await getProductRefunds(SHOP, 90);
+
+    // Refund 1 has 2 items, refund 2 has 1, refund 3 has 1 = 4 total rows
+    expect(rows).toHaveLength(4);
+    expect(rows[0]).toHaveProperty("product");
+    expect(rows[0]).toHaveProperty("sku");
+    expect(rows[0]).toHaveProperty("quantity");
+    expect(rows[0]).toHaveProperty("amount");
+    expect(rows[0]).toHaveProperty("date");
+    expect(rows[0]).toHaveProperty("orderName");
+  });
+
+  it("sorts by refund date descending (most recent first)", async () => {
+    const rows = await getProductRefunds(SHOP, 90);
+    for (let i = 1; i < rows.length; i++) {
+      expect(rows[i].date <= rows[i - 1].date).toBe(true);
+    }
+  });
+
+  it("respects date range", async () => {
+    const all = await getProductRefunds(SHOP, 90);
+    const recent = await getProductRefunds(SHOP, 7);
+    expect(recent.length).toBeLessThan(all.length);
+    // Only refund 1 (5 days ago) with 2 line items
+    expect(recent).toHaveLength(2);
+  });
+
+  it("handles malformed lineItems JSON gracefully", async () => {
+    await db.refundRecord.create({
+      data: {
+        id: "gid://shopify/Refund/bad",
+        shop: SHOP,
+        orderId: "gid://shopify/Order/99",
+        orderName: "#1099",
+        refundDate: new Date(),
+        amount: 10,
+        currency: "USD",
+        lineItems: "not valid json",
+      },
+    });
+
+    const rows = await getProductRefunds(SHOP, 90);
+    // Should still return original 4 rows, skipping the bad one
+    expect(rows).toHaveLength(4);
   });
 });
 

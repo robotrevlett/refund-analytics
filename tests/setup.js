@@ -33,8 +33,9 @@ beforeAll(async () => {
 
   await prisma.$connect();
 
-  // Make prisma available globally for tests
+  // Make prisma available globally for tests and for db.server.js
   global.__testPrisma = prisma;
+  global.prismaClient = prisma;
 });
 
 afterEach(async () => {
