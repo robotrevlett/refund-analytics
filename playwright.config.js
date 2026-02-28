@@ -16,5 +16,8 @@ export default defineConfig({
     port: 3100,
     timeout: 30000,
     reuseExistingServer: !process.env.CI,
+    env: {
+      DATABASE_URL: process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/refund_analytics_test",
+    },
   },
 });
