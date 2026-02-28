@@ -167,6 +167,16 @@ Always run `npm test` after making changes. All tests must pass before committin
 - Format currency with `Intl.NumberFormat` using the shop's currency
 - Dates: store as UTC, display in shop's timezone
 
+## Documentation & Git Practices
+
+- **Docs are first-class artifacts.** `SPEC.md`, `CLAUDE.md`, and plan files live in the repo and are always committed.
+- **Keep docs up to date.** When code changes affect architecture, commands, API usage, or conventions, update the relevant doc in the same commit.
+- **Docs should be robust yet concise.** Enough detail to act on, no filler. If a section grows stale, trim or rewrite it.
+- **Commit plans.** Implementation plans go in `docs/plans/` and are committed before work begins. They serve as decision records.
+- **Commit messages matter.** Every commit message explains *why*, not just *what*. Use the body for context when the change isn't obvious.
+- **Atomic commits.** Each commit should be a coherent, self-contained change. Don't bundle unrelated work.
+- **Never commit without testing.** Run `npm test` before every commit. If tests don't exist yet for the code being changed, write them first.
+
 ## Don'ts
 
 - Don't use REST Admin API — it's deprecated (Oct 2024)
@@ -175,3 +185,4 @@ Always run `npm test` after making changes. All tests must pass before committin
 - Don't store sensitive data (access tokens are in Session model, managed by Shopify library)
 - Don't skip GDPR webhook handlers — required for app store approval
 - Don't use `@shopify/polaris` v11 patterns — we're on v12+ (BlockStack, not Stack)
+- Don't let docs drift from code — update docs in the same commit as the code change
