@@ -1,38 +1,31 @@
-# Learn more: https://shopify.dev/docs/apps/tools/cli/configuration
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
 client_id = "a952b2388664e8e7f7f18e9bd09730e1"
-name = "Refund & Return Analytics"
-handle = "refund-analytics"
+name = "refund-analytics"
 application_url = "https://refund-analytics.fly.dev"
 embedded = true
-
-[access_scopes]
-scopes = "read_orders"
-
-[auth]
-redirect_urls = [
-  "https://refund-analytics.fly.dev/auth/callback",
-  "https://localhost/auth/callback"
-]
+handle = "refund-return-analytics"
 
 [webhooks]
-api_version = "2025-01"
+api_version = "2026-01"
 
   [[webhooks.subscriptions]]
-  topics = ["app/uninstalled"]
+  topics = [
+  "app/uninstalled",
+  "orders/updated",
+  "refunds/create",
+  "bulk_operations/finish"
+]
   uri = "/webhooks"
 
-  [[webhooks.subscriptions]]
-  topics = ["orders/updated"]
-  uri = "/webhooks"
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_orders"
+optional_scopes = [ ]
+use_legacy_install_flow = false
 
-  [[webhooks.subscriptions]]
-  topics = ["refunds/create"]
-  uri = "/webhooks"
-
-  [[webhooks.subscriptions]]
-  topics = ["bulk_operations/finish"]
-  uri = "/webhooks"
-
+[auth]
+redirect_urls = [ "https://refund-analytics.fly.dev/auth/callback" ]
 
 [pos]
 embedded = false
