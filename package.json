@@ -16,6 +16,11 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:db:up": "docker compose up -d",
+    "test:db:create": "docker exec $(docker compose ps -q postgres) psql -U postgres -c 'CREATE DATABASE refund_analytics_test;' 2>/dev/null || true",
+    "test:db:migrate": "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/refund_analytics_test npx prisma migrate deploy",
+    "test:all": "npm run test:db:up && npm run test:db:create && npm run test:db:migrate && npm test",
+    "test:e2e:all": "npm run test:db:up && npm run test:db:create && npm run test:db:migrate && npm run test:e2e",
     "dev:test": "node tests/e2e/test-server.js"
   },
   "dependencies": {
