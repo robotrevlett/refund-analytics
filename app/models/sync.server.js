@@ -122,6 +122,7 @@ const RETURN_DETAIL_QUERY = `#graphql
     node(id: $id) {
       ... on Return {
         id
+        createdAt
         order {
           id
         }
@@ -200,6 +201,9 @@ export async function pollBulkOperation(admin, operationId) {
   });
 
   const { data } = await response.json();
+  if (!data.node) {
+    return { status: "UNKNOWN", url: null };
+  }
   return data.node;
 }
 
@@ -475,6 +479,7 @@ async function saveReturnReasons(shop, returnDetails) {
   for (const ret of returnDetails) {
     const orderId = ret.order?.id || "";
     const returnId = ret.id;
+    const returnDate = ret.createdAt ? new Date(ret.createdAt) : new Date();
 
     for (const { node } of ret.returnLineItems?.edges || []) {
       const { label, category } = mapReturnReason(node.returnReason);
@@ -498,7 +503,7 @@ async function saveReturnReasons(shop, returnDetails) {
           productTitle: node.lineItem?.title || "Unknown",
           sku: node.lineItem?.sku || null,
           quantity: node.quantity,
-          createdAt: new Date(),
+          createdAt: returnDate,
         },
       });
     }

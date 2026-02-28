@@ -33,25 +33,27 @@ describe("parseDays", () => {
 });
 
 describe("daysAgo", () => {
-  it("returns a date N days in the past at midnight", () => {
+  it("returns a date N days in the past at UTC midnight", () => {
     const result = daysAgo(7);
     const expected = new Date();
     expected.setDate(expected.getDate() - 7);
-    expected.setHours(0, 0, 0, 0);
+    expected.setUTCHours(0, 0, 0, 0);
 
     expect(result.getTime()).toBe(expected.getTime());
   });
 
-  it("returns midnight", () => {
+  it("returns UTC midnight", () => {
     const result = daysAgo(1);
-    expect(result.getHours()).toBe(0);
-    expect(result.getMinutes()).toBe(0);
-    expect(result.getSeconds()).toBe(0);
+    expect(result.getUTCHours()).toBe(0);
+    expect(result.getUTCMinutes()).toBe(0);
+    expect(result.getUTCSeconds()).toBe(0);
+    expect(result.getUTCMilliseconds()).toBe(0);
   });
 
-  it("handles 0 days (today at midnight)", () => {
+  it("handles 0 days (today at UTC midnight)", () => {
     const result = daysAgo(0);
     const today = new Date();
-    expect(result.getDate()).toBe(today.getDate());
+    expect(result.getUTCDate()).toBe(today.getUTCDate());
+    expect(result.getUTCHours()).toBe(0);
   });
 });

@@ -115,7 +115,18 @@ async function handleOrderUpdated(shop, payload) {
 async function handleBulkOperationFinish(shop, payload, admin) {
   const { admin_graphql_api_id, status, type } = payload;
 
-  if (type !== "query" || status !== "completed") {
+  if (type !== "query") {
+    return;
+  }
+
+  // Handle failed/canceled bulk operations
+  if (status !== "completed") {
+    if (status === "failed" || status === "canceled") {
+      await db.shop.updateMany({
+        where: { id: shop, syncOperationId: admin_graphql_api_id },
+        data: { syncStatus: "failed", syncOperationId: null },
+      });
+    }
     return;
   }
 

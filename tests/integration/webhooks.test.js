@@ -58,8 +58,20 @@ async function simulateRefundCreate(db, shop, payload) {
 async function simulateBulkFinish(db, shop, payload) {
   const { admin_graphql_api_id, status, type } = payload;
 
-  if (type !== "query" || status !== "completed") return;
+  if (type !== "query") return;
 
+  // Handle failed/canceled bulk operations
+  if (status !== "completed") {
+    if (status === "failed" || status === "canceled") {
+      await db.shop.updateMany({
+        where: { id: shop, syncOperationId: admin_graphql_api_id },
+        data: { syncStatus: "failed", syncOperationId: null },
+      });
+    }
+    return;
+  }
+
+  // For completed ops without admin (simulated), just mark status
   await db.shop.updateMany({
     where: { id: shop, syncOperationId: admin_graphql_api_id },
     data: { syncStatus: "completed" },
@@ -159,7 +171,7 @@ describe("webhook: bulk_operations/finish", () => {
     expect(shop.syncStatus).toBe("running"); // unchanged
   });
 
-  it("ignores failed bulk operations", async () => {
+  it("marks shop as failed when bulk operation fails", async () => {
     await db.shop.create({
       data: { id: SHOP, syncStatus: "running", syncOperationId: "gid://shopify/BulkOperation/12345" },
     });
@@ -171,6 +183,7 @@ describe("webhook: bulk_operations/finish", () => {
     });
 
     const shop = await db.shop.findUnique({ where: { id: SHOP } });
-    expect(shop.syncStatus).toBe("running"); // unchanged
+    expect(shop.syncStatus).toBe("failed");
+    expect(shop.syncOperationId).toBeNull();
   });
 });

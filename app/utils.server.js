@@ -18,7 +18,7 @@ export function parseDays(searchParams) {
 export function daysAgo(n) {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  d.setHours(0, 0, 0, 0);
+  d.setUTCHours(0, 0, 0, 0);
   return d;
 }
 
