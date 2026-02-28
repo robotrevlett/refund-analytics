@@ -2,6 +2,33 @@
 
 A Shopify app that shows merchants their **real revenue after refunds**. Unlike Shopify's built-in reports which inflate revenue numbers, this app groups refunds by **refund date** (not order date) so merchants see the true impact on each period's revenue.
 
+## Screenshots
+
+### Dashboard
+KPI cards, refund trend chart, top refunded products, and return reason breakdown — all grouped by refund date.
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+### Product Breakdown
+Per-product refund analysis with sortable columns, SKU-level detail, and per-product return reasons.
+
+![Product Breakdown](docs/screenshots/products.png)
+
+### Return Reason Analytics
+Structured return reason tracking with category breakdown, trends over time, and reasons by product.
+
+![Return Reason Analytics](docs/screenshots/returns.png)
+
+### Data Sync
+Sync status with last synced timestamp and manual re-sync trigger.
+
+![Data Sync](docs/screenshots/sync.png)
+
+### Settings
+Store info, sync status, and data summary counts.
+
+![Settings](docs/screenshots/settings.png)
+
 ## Features
 
 - **Dashboard** — KPI cards (Gross Sales, Total Refunds, Net Revenue, Refund Rate), refund trend chart, top refunded products, return reason breakdown
