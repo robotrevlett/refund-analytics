@@ -17,11 +17,6 @@ const ORDERS_BULK_QUERY = `
             }
           }
           displayFinancialStatus
-          customer {
-            id
-            displayName
-            email
-          }
           refunds {
             id
             createdAt

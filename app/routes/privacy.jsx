@@ -113,9 +113,22 @@ export default function PrivacyPolicy() {
 
           <h2>Data Retention</h2>
           <p>
-            All data associated with your shop is automatically deleted when
-            the App is uninstalled (via the app/uninstalled webhook) or when a
-            shop redact request is received from Shopify.
+            Order and refund analytics data is retained for as long as the App
+            is installed on your store. We do not retain data beyond what is
+            needed to provide the service.
+          </p>
+          <p>
+            All data associated with your shop is automatically and permanently
+            deleted when:
+          </p>
+          <ul>
+            <li>You uninstall the App (via the app/uninstalled webhook)</li>
+            <li>A shop redact request is received from Shopify</li>
+            <li>You contact us to request deletion</li>
+          </ul>
+          <p>
+            Data deletion is immediate and irreversible. No backups of
+            merchant data are retained after deletion.
           </p>
 
           <h2>Data Access</h2>
