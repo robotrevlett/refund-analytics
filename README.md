@@ -163,18 +163,49 @@ tests/
 
 ## Deployment
 
-```bash
-# Deploy to Shopify (pushes config: scopes, webhooks)
-shopify app deploy
+### Railway (Recommended)
 
+The app includes a production `Dockerfile` and `railway.json` for deployment to [Railway](https://railway.app/).
+
+**1. Set up Railway project:**
+
+- Create a new project on Railway
+- Add a **PostgreSQL** database service
+- Connect your GitHub repo as a service
+
+**2. Configure environment variables:**
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string (auto-set by Railway if you link the DB) | `postgresql://user:pass@host:5432/dbname` |
+| `SHOPIFY_API_KEY` | App API key from Shopify Partners | |
+| `SHOPIFY_API_SECRET` | App API secret | |
+| `SHOPIFY_APP_URL` | Your Railway public URL | `https://refund-analytics-production.up.railway.app` |
+| `SCOPES` | API scopes | `read_orders` |
+| `PORT` | Server port (Railway sets this automatically) | `3000` |
+
+**3. Deploy:**
+
+Railway will automatically build using the `Dockerfile` and start the app. The `docker-start` script runs Prisma migrations (`prisma migrate deploy`) before starting the Remix server.
+
+**4. Push Shopify config:**
+
+```bash
+# Update your app's URL in shopify.app.toml to your Railway URL, then:
+shopify app deploy
+```
+
+### Manual / Other Platforms
+
+```bash
 # Build for production
 npm run build
 
-# Start production server
-npm run start
+# Run migrations and start
+npm run docker-start
 ```
 
-For production, switch `DATABASE_URL` to a PostgreSQL connection string and run `npx prisma migrate deploy`.
+For any platform, ensure `DATABASE_URL` points to a PostgreSQL instance and all environment variables above are set.
 
 ## License
 
