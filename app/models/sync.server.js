@@ -202,6 +202,13 @@ export async function pollBulkOperation(admin, operationId) {
   return data.node;
 }
 
+export async function markSyncFailed(shop) {
+  await db.shop.update({
+    where: { id: shop },
+    data: { syncStatus: "failed", syncOperationId: null },
+  });
+}
+
 export async function processCompletedSync(admin, shop, jsonlUrl) {
   try {
     // Phase 1: Download and parse JSONL
