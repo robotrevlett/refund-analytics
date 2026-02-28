@@ -1,0 +1,36 @@
+# Learn more: https://shopify.dev/docs/apps/tools/cli/configuration
+name = "Refund & Return Analytics"
+handle = "refund-analytics"
+embedded = true
+
+[access_scopes]
+scopes = "read_orders"
+
+[auth]
+redirect_urls = [
+  "https://localhost/auth/callback"
+]
+
+[webhooks]
+api_version = "2025-01"
+
+  [[webhooks.subscriptions]]
+  topics = ["app/uninstalled"]
+  uri = "/webhooks"
+
+  [[webhooks.subscriptions]]
+  topics = ["orders/updated"]
+  uri = "/webhooks"
+
+  [[webhooks.subscriptions]]
+  topics = ["refunds/create"]
+  uri = "/webhooks"
+
+  [[webhooks.subscriptions]]
+  topics = ["bulk_operations/finish"]
+  uri = "/webhooks"
+
+  compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+
+[pos]
+embedded = false

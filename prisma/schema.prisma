@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id          String    @id
+  shop        String
+  state       String
+  isOnline    Boolean   @default(false)
+  scope       String?
+  expires     DateTime?
+  accessToken String
+  userId      BigInt?
+}
+
+model Shop {
+  id              String    @id // shop domain (e.g. "my-store.myshopify.com")
+  currency        String    @default("USD")
+  lastSyncAt      DateTime?
+  syncStatus      String    @default("pending") // pending, running, completed, failed
+  syncOperationId String?
+}
+
+model RefundRecord {
+  id        String   @id // Shopify GID (e.g. "gid://shopify/Refund/123")
+  shop      String
+  orderId   String
+  orderName String
+  refundDate DateTime // createdAt of the refund, NOT the order date
+  amount    Float
+  currency  String
+  note      String?
+  reason    String?  // from orderAdjustments: restock, damage, customer, other
+  lineItems String   // JSON array: [{sku, title, quantity, amount}]
+  hasReturn Boolean  @default(false)
+  returnId  String?
+  createdAt DateTime @default(now())
+
+  @@index([shop, refundDate])
+  @@index([shop, orderId])
+}
+
+model ReturnReasonRecord {
+  id           String   @id // Shopify GID
+  shop         String
+  returnId     String
+  orderId      String
+  reason       String   // structured reason from ReturnReasonDefinition
+  category     String?  // reason category (e.g. "Sizing", "Defective")
+  productTitle String
+  sku          String?
+  quantity     Int
+  createdAt    DateTime
+
+  @@index([shop, createdAt])
+  @@index([shop, reason])
+}
