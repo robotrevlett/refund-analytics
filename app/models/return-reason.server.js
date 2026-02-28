@@ -1,4 +1,5 @@
 import db from "../db.server.js";
+import { daysAgo } from "../utils.server.js";
 
 export async function getReturnReasonBreakdown(shop, days = 30) {
   const since = daysAgo(days);
@@ -88,9 +89,3 @@ export async function getReturnReasonsByProduct(shop, days = 30) {
   );
 }
 
-function daysAgo(n) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}

@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -15,31 +15,35 @@ import { useState, useCallback } from "react";
 import { authenticate } from "../shopify.server.js";
 import {
   getReturnReasonBreakdown,
+  getReturnReasonTrend,
   getReturnReasonsByProduct,
 } from "../models/return-reason.server.js";
+import { parseDays } from "../utils.server.js";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
   const url = new URL(request.url);
-  const days = parseInt(url.searchParams.get("days") || "30", 10);
+  const days = parseDays(url.searchParams);
 
-  const [reasonBreakdown, productReasons] = await Promise.all([
+  const [reasonBreakdown, reasonTrend, productReasons] = await Promise.all([
     getReturnReasonBreakdown(shop, days),
+    getReturnReasonTrend(shop, days),
     getReturnReasonsByProduct(shop, days),
   ]);
 
-  return json({ reasonBreakdown, productReasons, days });
+  return json({ reasonBreakdown, reasonTrend, productReasons, days });
 };
 
 export default function ReturnsPage() {
-  const { reasonBreakdown, productReasons, days } = useLoaderData();
+  const { reasonBreakdown, reasonTrend, productReasons, days } = useLoaderData();
+  const navigate = useNavigate();
   const [selectedDays, setSelectedDays] = useState(String(days));
 
   const handleDaysChange = useCallback((value) => {
     setSelectedDays(value);
-    window.location.href = `/app/returns?days=${value}`;
-  }, []);
+    navigate(`/app/returns?days=${value}`);
+  }, [navigate]);
 
   const dateRangeOptions = [
     { label: "Last 7 days", value: "7" },
@@ -87,6 +91,30 @@ export default function ReturnsPage() {
                     No return reason data for this period. Return reasons require
                     Shopify's structured return reasons feature (Jan 2026+).
                   </Text>
+                )}
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+
+          <Layout.Section>
+            <Card>
+              <BlockStack gap="400">
+                <Text variant="headingMd" as="h2">
+                  Reason Trends Over Time
+                </Text>
+                {reasonTrend.length > 0 ? (
+                  <DataTable
+                    columnContentTypes={["text", "text", "numeric", "numeric"]}
+                    headings={["Date", "Reason", "Count", "Qty Returned"]}
+                    rows={reasonTrend.map((r) => [
+                      r.date,
+                      r.reason,
+                      r.count,
+                      r.quantity,
+                    ])}
+                  />
+                ) : (
+                  <Text tone="subdued">No trend data for this period.</Text>
                 )}
               </BlockStack>
             </Card>

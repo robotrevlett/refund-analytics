@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -16,13 +16,14 @@ import { useState, useCallback } from "react";
 import { authenticate } from "../shopify.server.js";
 import { getDashboardMetrics, getTopRefundedProducts, getRefundTrend } from "../models/refund.server.js";
 import { getShopSyncStatus } from "../models/sync.server.js";
+import { parseDays } from "../utils.server.js";
 import { MetricCard } from "../components/MetricCard.jsx";
 
 export const loader = async ({ request }) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   const shop = session.shop;
   const url = new URL(request.url);
-  const days = parseInt(url.searchParams.get("days") || "30", 10);
+  const days = parseDays(url.searchParams);
 
   const [metrics, topProducts, trend, syncStatus] = await Promise.all([
     getDashboardMetrics(shop, days),
@@ -36,12 +37,13 @@ export const loader = async ({ request }) => {
 
 export default function Dashboard() {
   const { metrics, topProducts, trend, syncStatus, days } = useLoaderData();
+  const navigate = useNavigate();
   const [selectedDays, setSelectedDays] = useState(String(days));
 
   const handleDaysChange = useCallback((value) => {
     setSelectedDays(value);
-    window.location.href = `/app?days=${value}`;
-  }, []);
+    navigate(`/app?days=${value}`);
+  }, [navigate]);
 
   const dateRangeOptions = [
     { label: "Last 7 days", value: "7" },

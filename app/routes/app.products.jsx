@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -14,29 +14,32 @@ import {
 import { useState, useCallback } from "react";
 import { authenticate } from "../shopify.server.js";
 import { getProductRefunds, getTopRefundedProducts } from "../models/refund.server.js";
+import { parseDays, getShopCurrency } from "../utils.server.js";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
   const url = new URL(request.url);
-  const days = parseInt(url.searchParams.get("days") || "30", 10);
+  const days = parseDays(url.searchParams);
 
-  const [topProducts, productRefunds] = await Promise.all([
+  const [topProducts, productRefunds, currency] = await Promise.all([
     getTopRefundedProducts(shop, days, 50),
     getProductRefunds(shop, days),
+    getShopCurrency(shop),
   ]);
 
-  return json({ topProducts, productRefunds, days });
+  return json({ topProducts, productRefunds, days, currency });
 };
 
 export default function ProductsPage() {
-  const { topProducts, productRefunds, days } = useLoaderData();
+  const { topProducts, productRefunds, days, currency } = useLoaderData();
+  const navigate = useNavigate();
   const [selectedDays, setSelectedDays] = useState(String(days));
 
   const handleDaysChange = useCallback((value) => {
     setSelectedDays(value);
-    window.location.href = `/app/products?days=${value}`;
-  }, []);
+    navigate(`/app/products?days=${value}`);
+  }, [navigate]);
 
   const dateRangeOptions = [
     { label: "Last 7 days", value: "7" },
@@ -47,7 +50,7 @@ export default function ProductsPage() {
   const formatCurrency = (amount) =>
     new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: currency || "USD",
     }).format(amount);
 
   return (
@@ -75,11 +78,7 @@ export default function ProductsPage() {
                 </Text>
                 {topProducts.length > 0 ? (
                   <DataTable
-                    columnContentTypes={[
-                      "text",
-                      "numeric",
-                      "numeric",
-                    ]}
+                    columnContentTypes={["text", "numeric", "numeric"]}
                     headings={["Product", "Refund Count", "Refund Amount"]}
                     rows={topProducts.map((p) => [
                       p.title,

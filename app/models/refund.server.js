@@ -1,4 +1,5 @@
 import db from "../db.server.js";
+import { daysAgo } from "../utils.server.js";
 
 export async function getDashboardMetrics(shop, days = 30) {
   const since = daysAgo(days);
@@ -126,9 +127,3 @@ export async function getProductRefunds(shop, days = 30) {
   return rows;
 }
 
-function daysAgo(n) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
