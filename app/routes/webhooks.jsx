@@ -1,8 +1,9 @@
 import { authenticate } from "../shopify.server.js";
 import db from "../db.server.js";
+import { pollBulkOperation, processCompletedSync } from "../models/sync.server.js";
 
 export const action = async ({ request }) => {
-  const { topic, shop, payload } = await authenticate.webhook(request);
+  const { topic, shop, payload, admin } = await authenticate.webhook(request);
 
   switch (topic) {
     case "APP_UNINSTALLED":
@@ -33,7 +34,11 @@ export const action = async ({ request }) => {
       break;
 
     case "BULK_OPERATIONS_FINISH":
-      await handleBulkOperationFinish(shop, payload);
+      try {
+        await handleBulkOperationFinish(shop, payload, admin);
+      } catch (error) {
+        console.error(`Failed to handle bulk finish for ${shop}:`, error);
+      }
       break;
 
     case "CUSTOMERS_DATA_REQUEST":
@@ -107,19 +112,36 @@ async function handleOrderUpdated(shop, payload) {
   });
 }
 
-async function handleBulkOperationFinish(shop, payload) {
+async function handleBulkOperationFinish(shop, payload, admin) {
   const { admin_graphql_api_id, status, type } = payload;
 
   if (type !== "query" || status !== "completed") {
     return;
   }
 
-  // Mark sync as completed — the actual JSONL processing happens when
-  // the sync page polls for status. The webhook doesn't have an admin
-  // API session to call processCompletedSync directly, but we store the
-  // operation ID so the sync route can pick it up.
-  await db.shop.updateMany({
-    where: { id: shop, syncOperationId: admin_graphql_api_id },
-    data: { syncStatus: "completed" },
+  // Verify this bulk operation belongs to our shop's sync
+  const shopRecord = await db.shop.findUnique({
+    where: { id: shop },
+    select: { syncOperationId: true },
   });
+
+  if (shopRecord?.syncOperationId !== admin_graphql_api_id) {
+    return;
+  }
+
+  if (!admin) {
+    // No admin session available (e.g. app was uninstalled) — mark as
+    // needing processing so the sync page can pick it up on next visit
+    await db.shop.update({
+      where: { id: shop },
+      data: { syncStatus: "completed" },
+    });
+    return;
+  }
+
+  // Poll the operation to get the JSONL URL and process the data
+  const opStatus = await pollBulkOperation(admin, admin_graphql_api_id);
+  if (opStatus.status === "COMPLETED" && opStatus.url) {
+    await processCompletedSync(admin, shop, opStatus.url);
+  }
 }

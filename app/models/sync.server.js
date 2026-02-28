@@ -117,6 +117,34 @@ const REFUND_DETAIL_QUERY = `#graphql
   }
 `;
 
+const RETURN_DETAIL_QUERY = `#graphql
+  query ReturnDetail($id: ID!) {
+    node(id: $id) {
+      ... on Return {
+        id
+        order {
+          id
+        }
+        returnLineItems(first: 50) {
+          edges {
+            node {
+              id
+              quantity
+              returnReason
+              returnReasonNote
+              customerNote
+              lineItem {
+                title
+                sku
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
 // Max concurrent refund detail requests to stay within Shopify rate limits
 const REFUND_DETAIL_CONCURRENCY = 4;
 // Delay between batches (ms) to respect rate limits
@@ -222,7 +250,9 @@ export async function processCompletedSync(admin, shop, jsonlUrl) {
       });
     }
 
-    // Save refund records to DB
+    // Save refund records to DB and collect return IDs
+    const returnIds = [];
+
     for (const detail of refundDetails) {
       const lineItems = (detail.refundLineItems?.edges || []).map(
         ({ node }) => ({
@@ -235,6 +265,10 @@ export async function processCompletedSync(admin, shop, jsonlUrl) {
 
       const reason =
         detail.orderAdjustments?.edges?.[0]?.node?.reason || null;
+
+      if (detail.return?.id) {
+        returnIds.push(detail.return.id);
+      }
 
       await db.refundRecord.upsert({
         where: { id: detail.id },
@@ -267,6 +301,13 @@ export async function processCompletedSync(admin, shop, jsonlUrl) {
           returnId: detail.return?.id || null,
         },
       });
+    }
+
+    // Phase 3: Fetch and save return reason details
+    if (returnIds.length > 0) {
+      const uniqueReturnIds = [...new Set(returnIds)];
+      const returnDetails = await fetchReturnDetails(admin, uniqueReturnIds);
+      await saveReturnReasons(shop, returnDetails);
     }
 
     // Update shop record
@@ -368,4 +409,98 @@ async function fetchRefundDetails(admin, refundIds) {
   }
 
   return details;
+}
+
+/**
+ * Fetch return line item details with rate-limited concurrency.
+ * Uses the same batching strategy as fetchRefundDetails.
+ */
+async function fetchReturnDetails(admin, returnIds) {
+  const details = [];
+
+  for (let i = 0; i < returnIds.length; i += REFUND_DETAIL_CONCURRENCY) {
+    const batch = returnIds.slice(i, i + REFUND_DETAIL_CONCURRENCY);
+
+    const batchResults = await Promise.allSettled(
+      batch.map(async (returnId) => {
+        const response = await admin.graphql(RETURN_DETAIL_QUERY, {
+          variables: { id: returnId },
+        });
+        const { data } = await response.json();
+        return data.node;
+      }),
+    );
+
+    for (const result of batchResults) {
+      if (result.status === "fulfilled" && result.value) {
+        details.push(result.value);
+      } else if (result.status === "rejected") {
+        console.warn("Failed to fetch return detail:", result.reason?.message);
+      }
+    }
+
+    if (i + REFUND_DETAIL_CONCURRENCY < returnIds.length) {
+      await new Promise((resolve) => setTimeout(resolve, REFUND_DETAIL_BATCH_DELAY));
+    }
+  }
+
+  return details;
+}
+
+/**
+ * Map Shopify returnReason enum to human-readable labels and categories.
+ */
+const RETURN_REASON_MAP = {
+  SIZE_TOO_SMALL: { label: "Size too small", category: "Sizing" },
+  SIZE_TOO_LARGE: { label: "Size too large", category: "Sizing" },
+  UNWANTED: { label: "Unwanted", category: "Preference" },
+  NOT_AS_DESCRIBED: { label: "Not as described", category: "Accuracy" },
+  WRONG_ITEM: { label: "Wrong item received", category: "Accuracy" },
+  DAMAGED_DEFECTIVE: { label: "Damaged or defective", category: "Quality" },
+  STYLE: { label: "Style", category: "Preference" },
+  COLOR: { label: "Color", category: "Preference" },
+  OTHER: { label: "Other", category: "Other" },
+  UNKNOWN: { label: "Unknown", category: "Other" },
+};
+
+function mapReturnReason(rawReason) {
+  const mapped = RETURN_REASON_MAP[rawReason];
+  return mapped || { label: rawReason || "Unknown", category: "Other" };
+}
+
+/**
+ * Save return reason records to the database from fetched Return details.
+ */
+async function saveReturnReasons(shop, returnDetails) {
+  for (const ret of returnDetails) {
+    const orderId = ret.order?.id || "";
+    const returnId = ret.id;
+
+    for (const { node } of ret.returnLineItems?.edges || []) {
+      const { label, category } = mapReturnReason(node.returnReason);
+
+      await db.returnReasonRecord.upsert({
+        where: { id: node.id },
+        update: {
+          reason: label,
+          category,
+          quantity: node.quantity,
+          productTitle: node.lineItem?.title || "Unknown",
+          sku: node.lineItem?.sku || null,
+        },
+        create: {
+          id: node.id,
+          shop,
+          returnId,
+          orderId,
+          reason: label,
+          category,
+          productTitle: node.lineItem?.title || "Unknown",
+          sku: node.lineItem?.sku || null,
+          quantity: node.quantity,
+          createdAt: new Date(),
+        },
+      });
+    }
+  }
 }
