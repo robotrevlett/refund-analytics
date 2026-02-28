@@ -6,12 +6,15 @@ import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { authenticate } from "../shopify.server.js";
 import db from "../db.server.js";
 import { syncSubscriptionStatus } from "../models/billing.server.js";
+import { BetaBanner } from "../components/BetaBanner.jsx";
+import { ReviewPrompt } from "../components/ReviewPrompt.jsx";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
   const shop = session.shop;
+  const isBeta = process.env.BETA_MODE === "1";
 
   // Ensure shop record exists with correct currency (fetched from Shopify)
   const existing = await db.shop.findUnique({ where: { id: shop } });
@@ -30,9 +33,9 @@ export const loader = async ({ request }) => {
     }
   }
 
-  // Sync subscription status (skip in E2E tests — default to Pro)
+  // In beta mode, all features are free — skip billing check
   let planName = "Pro";
-  if (process.env.E2E_TEST !== "1") {
+  if (!isBeta && process.env.E2E_TEST !== "1") {
     try {
       const result = await syncSubscriptionStatus(admin, shop);
       planName = result.planName;
@@ -42,11 +45,15 @@ export const loader = async ({ request }) => {
     }
   }
 
-  return json({ apiKey: process.env.SHOPIFY_API_KEY || "", planName });
+  // Load installedAt for review prompt timing
+  const shopRecord = await db.shop.findUnique({ where: { id: shop }, select: { installedAt: true } });
+  const installedAt = shopRecord?.installedAt?.toISOString() || null;
+
+  return json({ apiKey: process.env.SHOPIFY_API_KEY || "", planName, isBeta, installedAt });
 };
 
 export default function App() {
-  const { apiKey, planName } = useLoaderData();
+  const { apiKey, planName, isBeta, installedAt } = useLoaderData();
 
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey}>
@@ -57,7 +64,9 @@ export default function App() {
         <Link to="/app/sync">Data Sync</Link>
         <Link to="/app/settings">Settings</Link>
       </ui-nav-menu>
-      <Outlet context={{ planName }} />
+      {isBeta && <BetaBanner />}
+      <ReviewPrompt installedAt={installedAt} />
+      <Outlet context={{ planName, isBeta }} />
     </AppProvider>
   );
 }

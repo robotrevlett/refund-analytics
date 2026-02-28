@@ -39,13 +39,13 @@ export const loader = async ({ request }) => {
 export default function ReturnsPage() {
   const { reasonBreakdown, reasonTrend, productReasons, days } = useLoaderData();
   const navigate = useNavigate();
-  const { planName } = useOutletContext() || {};
+  const { planName, isBeta } = useOutletContext() || {};
 
   const handleDaysChange = useCallback((value) => {
     navigate(`/app/returns?days=${value}`);
   }, [navigate]);
 
-  if (planName !== "Pro") {
+  if (!isBeta && planName !== "Pro") {
     return (
       <Page title="Return Reason Analytics" backAction={{ url: "/app" }}>
         <Banner title="Pro Plan Required" tone="warning">
