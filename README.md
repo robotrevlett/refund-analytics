@@ -43,7 +43,7 @@ Store info, sync status, and data summary counts.
 |-------|-----------|
 | Framework | [Remix](https://remix.run/) + [Shopify CLI](https://shopify.dev/docs/apps/tools/cli) |
 | UI | [Polaris](https://polaris.shopify.com/) v13 |
-| Database | [Prisma](https://www.prisma.io/) + SQLite (dev) / PostgreSQL (prod) |
+| Database | [Prisma](https://www.prisma.io/) + PostgreSQL ([Neon](https://neon.tech/) serverless) |
 | API | Shopify GraphQL Admin API (October 2025) |
 | Testing | [Vitest](https://vitest.dev/) (unit/integration) + [Playwright](https://playwright.dev/) (e2e) |
 | CI/CD | GitHub Actions |
@@ -53,6 +53,7 @@ Store info, sync status, and data summary counts.
 ### Prerequisites
 
 - Node.js >= 18
+- Docker (for local PostgreSQL) or a [Neon](https://neon.tech/) database
 - A [Shopify Partner account](https://partners.shopify.com/) and development store
 
 ### Setup
@@ -65,12 +66,16 @@ cd refund-analytics
 # Install dependencies
 npm install
 
-# Set up the database
-npx prisma migrate dev
+# Start local PostgreSQL via Docker
+docker compose up -d
 
 # Copy environment variables
 cp .env.example .env
 # Fill in SHOPIFY_API_KEY and SHOPIFY_API_SECRET from your Shopify Partner dashboard
+# DATABASE_URL is pre-configured for the local Docker PostgreSQL
+
+# Run database migrations
+npx prisma migrate dev
 
 # Start the dev server with Shopify tunnel
 shopify app dev
@@ -84,14 +89,14 @@ shopify app dev
 | `SHOPIFY_API_SECRET` | App API secret |
 | `SHOPIFY_APP_URL` | App URL (set automatically by `shopify app dev`) |
 | `SCOPES` | API scopes (`read_orders`) |
-| `DATABASE_URL` | Prisma connection string (`file:dev.db` for SQLite) |
+| `DATABASE_URL` | PostgreSQL connection string (`postgresql://postgres:postgres@localhost:5432/refund_analytics_dev`) |
 
 ## Testing
 
 ### Unit & Integration Tests
 
 ```bash
-npm test              # Run all tests (49 tests across 6 files)
+npm test              # Run all tests (67 tests)
 npx vitest --watch    # Watch mode
 ```
 
@@ -100,7 +105,7 @@ Tests cover: dashboard metrics, product aggregation, refund trends, return reaso
 ### E2E Tests
 
 ```bash
-npm run test:e2e      # Run Playwright tests (20 tests across 6 specs)
+npm run test:e2e      # Run Playwright tests (31 tests)
 npm run test:e2e:ui   # Interactive Playwright UI
 npm run dev:test      # Start the e2e test server manually
 ```
