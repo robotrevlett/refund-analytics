@@ -166,6 +166,11 @@ tests/
 └── fixtures/    # Test data generators
 ```
 
+## Known Limitations
+
+- **No data reconciliation on re-sync** — If a refund is deleted in Shopify, re-syncing will not remove it from the app's database. A full reset (clearing data in Settings) and re-sync is needed.
+- **Simple chart rendering** — The refund trend chart uses basic horizontal bars, not a full charting library. Adequate for trend visualization but not interactive or exportable.
+
 ## Deployment
 
 ### Railway (Recommended)
