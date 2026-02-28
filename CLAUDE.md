@@ -92,9 +92,10 @@ export async function action({ request }) {
 
 Shopify Bulk Operations API **cannot nest connections inside list fields**. `Order.refunds` is a list, so `refundLineItems` (a connection) can't be fetched in bulk.
 
-**Two-phase sync**:
-1. Bulk query: orders + refund summaries (id, date, total, note)
-2. Paginated detail: for each refund, fetch line items individually
+**Three-phase sync**:
+1. Bulk query: orders + refund summaries via JSONL
+2. Paginated detail: for each refund, fetch line items individually (rate-limited, 4 concurrent)
+3. Return reasons: for refunds linked to returns, fetch return line items with structured reasons
 
 This is the core architectural constraint — do not try to fetch refundLineItems in a bulk operation.
 
@@ -136,19 +137,28 @@ mutation { bulkOperationRunQuery(query: "{ orders { edges { node { ... } } } }")
 
 ## Testing
 
-### Framework
-- **Vitest** for test runner
-- **@testing-library/react** for component rendering
-- **MSW (Mock Service Worker)** for intercepting Shopify GraphQL calls
-- **SQLite in-memory** for test database
+### Unit & Integration (Vitest)
+- **Vitest** with singleFork pool (SQLite locking), jsdom environment
+- **MSW** for intercepting Shopify GraphQL calls
+- SQLite test DB — `global.prismaClient` set in setup.js to share with model imports
+- 49 tests across 6 files
+- Run: `npm test`
+
+### E2E (Playwright)
+- **Playwright** with Chromium, testing all pages
+- Mock auth via `E2E_TEST=1` env var (bypasses Shopify auth in shopify.server.js)
+- Seed script at `tests/e2e/seed.js` creates realistic test data
+- 20 tests across 6 spec files
+- Run: `npm run test:e2e`
 
 ### Test Data
-- Fixtures at `tests/fixtures/` — orders, refunds, returns, JSONL samples
-- Generator script at `tests/fixtures/generate.js`
+- Unit fixtures at `tests/fixtures/` — orders, refunds, returns, JSONL samples
+- E2E seed at `tests/e2e/seed.js` — 20 orders, 8 refunds, 6 return reasons
 - Covers edge cases: partial refunds, multi-refunds, $0 restocks, multi-currency, refund date != order date
 
 ### Running Tests
 Always run `npm test` after making changes. All tests must pass before committing.
+Run `npm run test:e2e` for e2e tests (requires the test server or uses webServer config).
 
 ### Key Invariants to Assert
 1. Net revenue = Gross sales - Total refunds (per date range)
@@ -164,7 +174,7 @@ Always run `npm test` after making changes. All tests must pass before committin
 - Server-only code in `.server.js` files (Remix convention)
 - Keep route files focused on loader/action/component — extract logic to `models/`
 - Use Prisma for all DB access — no raw SQL
-- Format currency with `Intl.NumberFormat` using the shop's currency
+- Format currency with `useCurrencyFormatter` hook (locale-aware)
 - Dates: store as UTC, display in shop's timezone
 
 ## Documentation & Git Practices
