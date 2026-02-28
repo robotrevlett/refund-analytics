@@ -102,7 +102,7 @@ This is the core architectural constraint — do not try to fetch refundLineItem
 
 - **Prisma** with SQLite (dev) / PostgreSQL (prod)
 - Schema at `prisma/schema.prisma`
-- Key models: `Session`, `Shop`, `RefundRecord`, `ReturnReasonRecord`
+- Key models: `Session`, `Shop`, `OrderRecord`, `RefundRecord`, `ReturnReasonRecord`
 - `RefundRecord.refundDate` = the refund's createdAt, NOT the order date. This is the app's core differentiator.
 - `RefundRecord.lineItems` is a JSON string — parse with `JSON.parse()` when reading
 

@@ -50,5 +50,9 @@ export default defineConfig({
     poolOptions: {
       forks: { singleFork: true },
     },
+    // Set DATABASE_URL before modules load so db.server.js can initialize
+    env: {
+      DATABASE_URL: `file:${process.cwd()}/prisma/test.db`,
+    },
   },
 });

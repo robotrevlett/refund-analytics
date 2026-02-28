@@ -8,6 +8,7 @@ export const action = async ({ request }) => {
     case "APP_UNINSTALLED":
       await db.session.deleteMany({ where: { shop } });
       await db.shop.deleteMany({ where: { id: shop } });
+      await db.orderRecord.deleteMany({ where: { shop } });
       await db.refundRecord.deleteMany({ where: { shop } });
       await db.returnReasonRecord.deleteMany({ where: { shop } });
       break;

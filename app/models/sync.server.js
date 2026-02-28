@@ -189,6 +189,33 @@ export async function processCompletedSync(admin, shop, jsonlUrl) {
     const currency =
       firstOrder?.totalPriceSet?.shopMoney?.currencyCode || "USD";
 
+    // Save order records to DB
+    const orderRecords = records.filter(
+      (r) => r.id && r.id.includes("/Order/"),
+    );
+    for (const order of orderRecords) {
+      await db.orderRecord.upsert({
+        where: { id: order.id },
+        update: {
+          totalAmount: parseFloat(
+            order.totalPriceSet?.shopMoney?.amount || 0,
+          ),
+          financialStatus: order.displayFinancialStatus || "PAID",
+        },
+        create: {
+          id: order.id,
+          shop,
+          name: order.name || "",
+          orderDate: new Date(order.createdAt),
+          totalAmount: parseFloat(
+            order.totalPriceSet?.shopMoney?.amount || 0,
+          ),
+          currency,
+          financialStatus: order.displayFinancialStatus || "PAID",
+        },
+      });
+    }
+
     // Save refund records to DB
     for (const detail of refundDetails) {
       const lineItems = (detail.refundLineItems?.edges || []).map(

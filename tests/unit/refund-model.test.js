@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { PrismaClient } from "@prisma/client";
+import { getDashboardMetrics, getTopRefundedProducts, getRefundTrend } from "../../app/models/refund.server.js";
 
 const SHOP = "test-store.myshopify.com";
 
@@ -7,12 +8,58 @@ function getDb() {
   return global.__testPrisma || new PrismaClient();
 }
 
-async function seedRefunds(db) {
+async function seedData(db) {
   await db.shop.create({
     data: { id: SHOP, currency: "USD", syncStatus: "completed" },
   });
 
   const now = new Date();
+
+  // Seed orders
+  const orders = [
+    {
+      id: "gid://shopify/Order/1",
+      shop: SHOP,
+      name: "#1001",
+      orderDate: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000),
+      totalAmount: 200.0,
+      currency: "USD",
+      financialStatus: "PARTIALLY_REFUNDED",
+    },
+    {
+      id: "gid://shopify/Order/2",
+      shop: SHOP,
+      name: "#1002",
+      orderDate: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000),
+      totalAmount: 300.0,
+      currency: "USD",
+      financialStatus: "REFUNDED",
+    },
+    {
+      id: "gid://shopify/Order/3",
+      shop: SHOP,
+      name: "#1003",
+      orderDate: new Date(now.getTime() - 70 * 24 * 60 * 60 * 1000),
+      totalAmount: 500.0,
+      currency: "USD",
+      financialStatus: "REFUNDED",
+    },
+    {
+      id: "gid://shopify/Order/4",
+      shop: SHOP,
+      name: "#1004",
+      orderDate: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
+      totalAmount: 150.0,
+      currency: "USD",
+      financialStatus: "PAID",
+    },
+  ];
+
+  for (const order of orders) {
+    await db.orderRecord.create({ data: order });
+  }
+
+  // Seed refunds
   const refunds = [
     {
       id: "gid://shopify/Refund/1",
@@ -62,90 +109,119 @@ async function seedRefunds(db) {
   for (const refund of refunds) {
     await db.refundRecord.create({ data: refund });
   }
-
-  return refunds;
 }
 
-describe("refund aggregations", () => {
+describe("getDashboardMetrics", () => {
   let db;
 
   beforeEach(async () => {
     db = getDb();
-    await seedRefunds(db);
+    await seedData(db);
   });
 
-  it("calculates total refunds within a date range", async () => {
-    const since = new Date();
-    since.setDate(since.getDate() - 30);
+  it("computes gross sales, refunds, net revenue, and refund rate for 30 days", async () => {
+    const metrics = await getDashboardMetrics(SHOP, 30);
 
-    const refunds = await db.refundRecord.findMany({
-      where: { shop: SHOP, refundDate: { gte: since } },
-    });
-
-    const total = refunds.reduce((sum, r) => sum + r.amount, 0);
-
-    // Refunds 1 and 2 are within 30 days, refund 3 is 60 days ago
-    expect(refunds).toHaveLength(2);
-    expect(total).toBeCloseTo(129.99, 2); // 50 + 79.99
+    // Orders within 30 days: #1001 (200), #1002 (300), #1004 (150) = 650
+    // Refunds within 30 days: Refund/1 (50), Refund/2 (79.99) = 129.99
+    expect(metrics.grossSales).toBeCloseTo(650, 0);
+    expect(metrics.totalRefunds).toBeCloseTo(129.99, 2);
+    expect(metrics.netRevenue).toBeCloseTo(520.01, 2);
+    expect(metrics.refundRate).toBeCloseTo(20.0, 0); // 129.99/650 ≈ 20%
+    expect(metrics.currency).toBe("USD");
   });
 
-  it("groups refunds by date", async () => {
-    const refunds = await db.refundRecord.findMany({
-      where: { shop: SHOP },
-      orderBy: { refundDate: "asc" },
-    });
+  it("includes older data in 90-day range", async () => {
+    const metrics = await getDashboardMetrics(SHOP, 90);
 
-    const dateMap = new Map();
-    for (const r of refunds) {
-      const date = r.refundDate.toISOString().split("T")[0];
-      const existing = dateMap.get(date) || { count: 0, amount: 0 };
-      existing.count += 1;
-      existing.amount += r.amount;
-      dateMap.set(date, existing);
-    }
-
-    expect(dateMap.size).toBe(3); // 3 different dates
+    // All 4 orders: 200 + 300 + 500 + 150 = 1150
+    // All 3 refunds: 50 + 79.99 + 149.99 = 279.98
+    expect(metrics.grossSales).toBeCloseTo(1150, 0);
+    expect(metrics.totalRefunds).toBeCloseTo(279.98, 2);
+    expect(metrics.netRevenue).toBeCloseTo(870.02, 2);
   });
 
-  it("aggregates top refunded products from line items JSON", async () => {
-    const refunds = await db.refundRecord.findMany({
-      where: { shop: SHOP },
-      select: { lineItems: true },
-    });
+  it("returns zero metrics when no data in range", async () => {
+    const metrics = await getDashboardMetrics(SHOP, 1);
 
-    const productMap = new Map();
-    for (const refund of refunds) {
-      const items = JSON.parse(refund.lineItems);
-      for (const item of items) {
-        const existing = productMap.get(item.title) || { count: 0, amount: 0 };
-        existing.count += item.quantity;
-        existing.amount += item.amount;
-        productMap.set(item.title, existing);
-      }
-    }
+    expect(metrics.grossSales).toBe(0);
+    expect(metrics.totalRefunds).toBe(0);
+    expect(metrics.netRevenue).toBe(0);
+    expect(metrics.refundRate).toBe(0);
+  });
+});
 
-    const sorted = Array.from(productMap.entries()).sort(
-      ([, a], [, b]) => b.amount - a.amount,
-    );
+describe("getTopRefundedProducts", () => {
+  let db;
 
-    // Slim Fit Jeans appears in 2 refunds: 20.01 + 79.99 = 100.00
-    expect(sorted[0][0]).toBe("Winter Puffer Jacket"); // 149.99
-    expect(sorted[0][1].amount).toBeCloseTo(149.99, 2);
+  beforeEach(async () => {
+    db = getDb();
+    await seedData(db);
   });
 
-  it("uses refund date not order date for filtering", async () => {
-    // This is the core differentiator — verify the refundDate field is used
-    const refund = await db.refundRecord.findUnique({
-      where: { id: "gid://shopify/Refund/1" },
-    });
+  it("aggregates products by refund amount across all refunds", async () => {
+    const products = await getTopRefundedProducts(SHOP, 90, 10);
 
-    // refundDate should be ~5 days ago, NOT the order creation date
-    const fiveDaysAgo = new Date();
-    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 6);
-    expect(refund.refundDate.getTime()).toBeGreaterThan(fiveDaysAgo.getTime());
+    // Winter Puffer Jacket: 149.99 (from refund 3)
+    // Slim Fit Jeans: 20.01 + 79.99 = 100.00 (from refunds 1 and 2)
+    // Classic Cotton T-Shirt: 29.99 (from refund 1)
+    expect(products[0].title).toBe("Winter Puffer Jacket");
+    expect(products[0].amount).toBeCloseTo(149.99, 2);
+    expect(products[1].title).toBe("Slim Fit Jeans");
+    expect(products[1].amount).toBeCloseTo(100.0, 2);
+    expect(products[1].count).toBe(2); // appears in 2 refunds
   });
 
-  it("handles $0 refund amounts", async () => {
+  it("respects date range", async () => {
+    const products = await getTopRefundedProducts(SHOP, 30, 10);
+
+    // Only refunds 1 and 2 are in range — no Winter Puffer Jacket
+    const titles = products.map((p) => p.title);
+    expect(titles).not.toContain("Winter Puffer Jacket");
+    expect(titles).toContain("Slim Fit Jeans");
+  });
+
+  it("respects limit", async () => {
+    const products = await getTopRefundedProducts(SHOP, 90, 1);
+    expect(products).toHaveLength(1);
+  });
+});
+
+describe("getRefundTrend", () => {
+  let db;
+
+  beforeEach(async () => {
+    db = getDb();
+    await seedData(db);
+  });
+
+  it("groups refunds by refund date", async () => {
+    const trend = await getRefundTrend(SHOP, 90);
+
+    // 3 refunds on 3 different dates
+    expect(trend).toHaveLength(3);
+    expect(trend[0].count).toBe(1);
+    // Sorted chronologically
+    expect(trend[0].date < trend[1].date).toBe(true);
+  });
+
+  it("uses refund date not order date for grouping", async () => {
+    const trend = await getRefundTrend(SHOP, 30);
+
+    // Only 2 refunds within 30 days (refund 3 is 60 days ago)
+    expect(trend).toHaveLength(2);
+  });
+});
+
+describe("edge cases", () => {
+  let db;
+
+  beforeEach(async () => {
+    db = getDb();
+    await seedData(db);
+  });
+
+  it("handles $0 refund amounts without affecting totals", async () => {
     await db.refundRecord.create({
       data: {
         id: "gid://shopify/Refund/zero",
@@ -160,10 +236,14 @@ describe("refund aggregations", () => {
       },
     });
 
-    const refunds = await db.refundRecord.findMany({ where: { shop: SHOP } });
-    const total = refunds.reduce((sum, r) => sum + r.amount, 0);
+    const metrics = await getDashboardMetrics(SHOP, 90);
+    // $0 refund should not change total refund amount
+    expect(metrics.totalRefunds).toBeCloseTo(279.98, 2);
+  });
 
-    // The $0 refund should not affect totals
-    expect(total).toBeCloseTo(279.98, 2); // 50 + 79.99 + 149.99 + 0
+  it("counts unique orders with refunds", async () => {
+    const metrics = await getDashboardMetrics(SHOP, 90);
+    // 3 refunds across 3 different orders
+    expect(metrics.ordersWithRefunds).toBe(3);
   });
 });

@@ -26,6 +26,19 @@ model Shop {
   syncOperationId String?
 }
 
+model OrderRecord {
+  id        String   @id // Shopify GID (e.g. "gid://shopify/Order/123")
+  shop      String
+  name      String       // e.g. "#1001"
+  orderDate DateTime     // createdAt of the order
+  totalAmount Float      // total price in shop currency
+  currency  String
+  financialStatus String // PAID, PARTIALLY_REFUNDED, REFUNDED, etc.
+  createdAt DateTime @default(now())
+
+  @@index([shop, orderDate])
+}
+
 model RefundRecord {
   id        String   @id // Shopify GID (e.g. "gid://shopify/Refund/123")
   shop      String

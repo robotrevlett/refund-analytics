@@ -3,36 +3,31 @@ import db from "../db.server.js";
 export async function getDashboardMetrics(shop, days = 30) {
   const since = daysAgo(days);
 
-  const refunds = await db.refundRecord.findMany({
-    where: { shop, refundDate: { gte: since } },
-    select: { amount: true, orderId: true },
-  });
+  const [refunds, orders, shopRecord] = await Promise.all([
+    db.refundRecord.findMany({
+      where: { shop, refundDate: { gte: since } },
+      select: { amount: true, orderId: true },
+    }),
+    db.orderRecord.findMany({
+      where: { shop, orderDate: { gte: since } },
+      select: { totalAmount: true },
+    }),
+    db.shop.findUnique({ where: { id: shop } }),
+  ]);
 
   const totalRefunds = refunds.reduce((sum, r) => sum + r.amount, 0);
-
-  // Get gross sales from unique orders that had refunds in this period
-  // For a complete picture, we'd need order totals from the sync
-  // For now, estimate from refund data
-  const shopRecord = await db.shop.findUnique({ where: { id: shop } });
-  const currency = shopRecord?.currency || "USD";
-
-  // Count total refund records and unique orders
-  const totalRefundCount = refunds.length;
-  const uniqueOrderIds = new Set(refunds.map((r) => r.orderId));
-
-  // Gross sales would come from synced order data — for now we show
-  // refund metrics which is the app's primary purpose
-  const grossSales = 0; // TODO: populate from order sync
+  const grossSales = orders.reduce((sum, o) => sum + o.totalAmount, 0);
   const netRevenue = grossSales - totalRefunds;
   const refundRate = grossSales > 0 ? (totalRefunds / grossSales) * 100 : 0;
+  const currency = shopRecord?.currency || "USD";
 
   return {
     grossSales,
     totalRefunds,
     netRevenue,
     refundRate,
-    refundCount: totalRefundCount,
-    ordersWithRefunds: uniqueOrderIds.size,
+    refundCount: refunds.length,
+    ordersWithRefunds: new Set(refunds.map((r) => r.orderId)).size,
     currency,
   };
 }

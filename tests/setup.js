@@ -42,6 +42,7 @@ afterEach(async () => {
   if (prisma) {
     await prisma.returnReasonRecord.deleteMany();
     await prisma.refundRecord.deleteMany();
+    await prisma.orderRecord.deleteMany();
     await prisma.shop.deleteMany();
     await prisma.session.deleteMany();
   }

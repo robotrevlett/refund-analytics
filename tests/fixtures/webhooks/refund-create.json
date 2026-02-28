@@ -1,0 +1,50 @@
+{
+  "id": 9999,
+  "order_id": 1001,
+  "created_at": "2026-02-20T14:30:00-05:00",
+  "note": "Customer requested refund — sizing issue",
+  "restock": true,
+  "transactions": [
+    {
+      "id": 5001,
+      "order_id": 1001,
+      "kind": "refund",
+      "gateway": "shopify_payments",
+      "status": "success",
+      "amount": "49.99",
+      "currency": "USD"
+    }
+  ],
+  "refund_line_items": [
+    {
+      "id": 7001,
+      "quantity": 1,
+      "line_item_id": 8001,
+      "subtotal": "29.99",
+      "total_tax": "2.40",
+      "line_item": {
+        "id": 8001,
+        "title": "Classic Cotton T-Shirt",
+        "sku": "APP-TSH-001",
+        "quantity": 1,
+        "price": "29.99"
+      },
+      "restock_type": "return"
+    },
+    {
+      "id": 7002,
+      "quantity": 1,
+      "line_item_id": 8002,
+      "subtotal": "20.00",
+      "total_tax": "1.60",
+      "line_item": {
+        "id": 8002,
+        "title": "Phone Case - Clear",
+        "sku": "ELC-CAS-002",
+        "quantity": 1,
+        "price": "19.99"
+      },
+      "restock_type": "return"
+    }
+  ]
+}
