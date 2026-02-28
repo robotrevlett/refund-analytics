@@ -42,9 +42,45 @@ export const action = async ({ request }) => {
       break;
 
     case "CUSTOMERS_DATA_REQUEST":
+      // This app stores order/refund data by shop, not by individual customer.
+      // No customer-specific data to export beyond what Shopify already provides.
+      console.log(`GDPR data request for ${shop}`);
+      break;
+
     case "CUSTOMERS_REDACT":
+      // Delete any records that could be linked to the customer's orders.
+      // The payload contains customer.id and orders_to_redact[].
+      try {
+        const orderIds = (payload.orders_to_redact || []).map(
+          (o) => `gid://shopify/Order/${o.id}`,
+        );
+        if (orderIds.length > 0) {
+          await db.refundRecord.deleteMany({
+            where: { shop, orderId: { in: orderIds } },
+          });
+          await db.returnReasonRecord.deleteMany({
+            where: { shop, orderId: { in: orderIds } },
+          });
+          await db.orderRecord.deleteMany({
+            where: { shop, id: { in: orderIds } },
+          });
+        }
+      } catch (error) {
+        console.error(`GDPR customer redact failed for ${shop}:`, error);
+      }
+      break;
+
     case "SHOP_REDACT":
-      console.log(`GDPR webhook: ${topic} for ${shop}`);
+      // Shop data erasure — delete all data for this shop (same as uninstall)
+      try {
+        await db.returnReasonRecord.deleteMany({ where: { shop } });
+        await db.refundRecord.deleteMany({ where: { shop } });
+        await db.orderRecord.deleteMany({ where: { shop } });
+        await db.shop.deleteMany({ where: { id: shop } });
+        await db.session.deleteMany({ where: { shop } });
+      } catch (error) {
+        console.error(`GDPR shop redact failed for ${shop}:`, error);
+      }
       break;
 
     default:

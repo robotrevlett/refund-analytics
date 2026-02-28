@@ -4,11 +4,31 @@ import { boundary } from "@shopify/shopify-app-remix/server";
 import { AppProvider } from "@shopify/shopify-app-remix/react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { authenticate } from "../shopify.server.js";
+import db from "../db.server.js";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
+  const shop = session.shop;
+
+  // Ensure shop record exists with correct currency (fetched from Shopify)
+  const existing = await db.shop.findUnique({ where: { id: shop } });
+  if (!existing) {
+    try {
+      const response = await admin.graphql(`#graphql
+        query { shop { currencyCode } }
+      `);
+      const { data } = await response.json();
+      const currency = data?.shop?.currencyCode || "USD";
+      await db.shop.create({
+        data: { id: shop, currency, syncStatus: "pending" },
+      });
+    } catch {
+      // Non-critical — shop record will be created during first sync
+    }
+  }
+
   return json({ apiKey: process.env.SHOPIFY_API_KEY || "" });
 };
 

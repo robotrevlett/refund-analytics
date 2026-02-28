@@ -10,11 +10,13 @@ import {
   Box,
   InlineGrid,
 } from "@shopify/polaris";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { authenticate } from "../shopify.server.js";
 import { getProductRefunds, getTopRefundedProducts } from "../models/refund.server.js";
+import { getReturnReasonsByProduct } from "../models/return-reason.server.js";
 import { parseDays, getShopCurrency } from "../utils.server.js";
 import { DateRangeSelector } from "../components/DateRangeSelector.jsx";
+import { useCurrencyFormatter } from "../components/useCurrencyFormatter.js";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -22,28 +24,41 @@ export const loader = async ({ request }) => {
   const url = new URL(request.url);
   const days = parseDays(url.searchParams);
 
-  const [topProducts, productRefunds, currency] = await Promise.all([
+  const [topProducts, productRefunds, productReasons, currency] = await Promise.all([
     getTopRefundedProducts(shop, days, 50),
     getProductRefunds(shop, days),
+    getReturnReasonsByProduct(shop, days),
     getShopCurrency(shop),
   ]);
 
-  return json({ topProducts, productRefunds, days, currency });
+  return json({ topProducts, productRefunds, productReasons, days, currency });
 };
 
 export default function ProductsPage() {
-  const { topProducts, productRefunds, days, currency } = useLoaderData();
+  const { topProducts, productRefunds, productReasons, days, currency } = useLoaderData();
   const navigate = useNavigate();
+  const formatCurrency = useCurrencyFormatter(currency);
 
   const handleDaysChange = useCallback((value) => {
     navigate(`/app/products?days=${value}`);
   }, [navigate]);
 
-  const formatCurrency = (amount) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency || "USD",
-    }).format(amount);
+  // Sortable top products table
+  const [sortIndex, setSortIndex] = useState(2); // default sort by amount
+  const [sortDirection, setSortDirection] = useState("descending");
+
+  const sortedProducts = [...topProducts].sort((a, b) => {
+    const fields = [null, "count", "amount"];
+    const field = fields[sortIndex];
+    if (!field) return 0;
+    const diff = a[field] - b[field];
+    return sortDirection === "ascending" ? diff : -diff;
+  });
+
+  const handleSort = useCallback((index, direction) => {
+    setSortIndex(index);
+    setSortDirection(direction);
+  }, []);
 
   return (
     <Page title="Product Refund Breakdown" backAction={{ url: "/app" }}>
@@ -62,16 +77,19 @@ export default function ProductsPage() {
                 <Text variant="headingMd" as="h2">
                   Top Refunded Products
                 </Text>
-                {topProducts.length > 0 ? (
+                {sortedProducts.length > 0 ? (
                   <DataTable
                     columnContentTypes={["text", "numeric", "numeric"]}
                     headings={["Product", "Refund Count", "Refund Amount"]}
-                    rows={topProducts.map((p) => [
-                      p.title,
+                    rows={sortedProducts.map((p) => [
+                      p.sku ? `${p.title} (${p.sku})` : p.title,
                       p.count,
                       formatCurrency(p.amount),
                     ])}
                     sortable={[false, true, true]}
+                    defaultSortDirection="descending"
+                    initialSortColumnIndex={2}
+                    onSort={handleSort}
                   />
                 ) : (
                   <Text tone="subdued">No refund data for this period.</Text>
@@ -80,11 +98,33 @@ export default function ProductsPage() {
             </Card>
           </Layout.Section>
 
+          {productReasons.length > 0 && (
+            <Layout.Section>
+              <Card>
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h2">
+                    Return Reasons by Product
+                  </Text>
+                  <DataTable
+                    columnContentTypes={["text", "text", "text", "numeric"]}
+                    headings={["Product", "SKU", "Reason", "Quantity"]}
+                    rows={productReasons.map((r) => [
+                      r.product,
+                      r.sku,
+                      r.reason,
+                      r.quantity,
+                    ])}
+                  />
+                </BlockStack>
+              </Card>
+            </Layout.Section>
+          )}
+
           <Layout.Section>
             <Card>
               <BlockStack gap="400">
                 <Text variant="headingMd" as="h2">
-                  Refund Details by Product
+                  Refund Details
                 </Text>
                 {productRefunds.length > 0 ? (
                   <DataTable

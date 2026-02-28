@@ -19,6 +19,8 @@ import { getShopSyncStatus } from "../models/sync.server.js";
 import { parseDays } from "../utils.server.js";
 import { MetricCard } from "../components/MetricCard.jsx";
 import { DateRangeSelector } from "../components/DateRangeSelector.jsx";
+import { BarChart } from "../components/BarChart.jsx";
+import { useCurrencyFormatter } from "../components/useCurrencyFormatter.js";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -45,11 +47,7 @@ export default function Dashboard() {
     navigate(`/app?days=${value}`);
   }, [navigate]);
 
-  const formatCurrency = (amount) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: metrics.currency || "USD",
-    }).format(amount);
+  const formatCurrency = useCurrencyFormatter(metrics.currency);
 
   return (
     <Page title="Refund & Return Analytics">
@@ -99,15 +97,24 @@ export default function Dashboard() {
               <BlockStack gap="400">
                 <Text variant="headingMd" as="h2">Refund Trend</Text>
                 {trend.length > 0 ? (
-                  <DataTable
-                    columnContentTypes={["text", "numeric", "numeric"]}
-                    headings={["Date", "Refund Count", "Refund Amount"]}
-                    rows={trend.map((row) => [
-                      row.date,
-                      row.count,
-                      formatCurrency(row.amount),
-                    ])}
-                  />
+                  <BlockStack gap="400">
+                    <BarChart
+                      data={trend.map((row) => ({
+                        label: row.date,
+                        value: row.amount,
+                      }))}
+                      formatValue={formatCurrency}
+                    />
+                    <DataTable
+                      columnContentTypes={["text", "numeric", "numeric"]}
+                      headings={["Date", "Count", "Amount"]}
+                      rows={trend.map((row) => [
+                        row.date,
+                        row.count,
+                        formatCurrency(row.amount),
+                      ])}
+                    />
+                  </BlockStack>
                 ) : (
                   <Text tone="subdued">No refund data for this period.</Text>
                 )}
