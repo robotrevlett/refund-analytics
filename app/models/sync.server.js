@@ -161,17 +161,22 @@ export async function getShopSyncStatus(shop) {
 }
 
 export async function startBulkSync(admin, shop) {
-  // Guard against concurrent sync starts — if already running, return early
-  const existingShop = await db.shop.findUnique({ where: { id: shop } });
-  if (existingShop?.syncStatus === "running") {
-    return { success: false, errors: [{ message: "Sync already in progress" }] };
-  }
-
+  // Ensure the shop record exists
   await db.shop.upsert({
     where: { id: shop },
-    update: { syncStatus: "running" },
-    create: { id: shop, syncStatus: "running" },
+    update: {},
+    create: { id: shop, syncStatus: "pending" },
   });
+
+  // Atomic compare-and-set: only update if NOT already running
+  const updated = await db.shop.updateMany({
+    where: { id: shop, syncStatus: { not: "running" } },
+    data: { syncStatus: "running" },
+  });
+
+  if (updated.count === 0) {
+    return { success: false, errors: [{ message: "Sync already in progress" }] };
+  }
 
   const response = await admin.graphql(START_BULK_MUTATION, {
     variables: { query: ORDERS_BULK_QUERY },
