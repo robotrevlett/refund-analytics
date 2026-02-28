@@ -10,6 +10,7 @@ import {
   DataTable,
   Banner,
   Box,
+  EmptyState,
 } from "@shopify/polaris";
 import { useCallback } from "react";
 import { authenticate } from "../shopify.server.js";
@@ -55,16 +56,32 @@ export default function Dashboard() {
       <AppBanners />
       <Page title="Refund & Return Analytics">
         <BlockStack gap="500">
-          {syncStatus.status === "pending" && (
+          {syncStatus.status === "pending" && metrics.grossSales === 0 && metrics.totalRefunds === 0 ? (
+            <Card>
+              <EmptyState
+                heading="No refund data yet"
+                action={{ content: "Sync order data", url: "/app/sync" }}
+              >
+                <p>
+                  Sync your Shopify orders to start seeing refund and return
+                  analytics. The initial sync usually takes a few minutes.
+                </p>
+              </EmptyState>
+            </Card>
+          ) : null}
+
+          {syncStatus.status === "pending" && (metrics.grossSales > 0 || metrics.totalRefunds > 0) && (
             <Banner
-              title="No data synced yet"
+              title="Data sync incomplete"
               action={{ content: "Start sync", url: "/app/sync" }}
               tone="warning"
             >
-              <p>Sync your order data to see refund analytics.</p>
+              <p>Sync your order data to see complete refund analytics.</p>
             </Banner>
           )}
 
+          {!(syncStatus.status === "pending" && metrics.grossSales === 0 && metrics.totalRefunds === 0) && (
+          <>
           <Box paddingInlineEnd="300">
             <InlineGrid columns="1fr auto" alignItems="center">
               <Text variant="headingMd" as="h2">Overview</Text>
@@ -169,6 +186,8 @@ export default function Dashboard() {
               </Card>
             </Layout.Section>
           </Layout>
+          </>
+          )}
         </BlockStack>
       </Page>
     </>

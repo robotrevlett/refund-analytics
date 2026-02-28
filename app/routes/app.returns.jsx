@@ -10,6 +10,7 @@ import {
   Box,
   InlineGrid,
   Banner,
+  EmptyState,
 } from "@shopify/polaris";
 import { useCallback } from "react";
 import { authenticate } from "../shopify.server.js";
@@ -18,6 +19,7 @@ import {
   getReturnReasonTrend,
   getReturnReasonsByProduct,
 } from "../models/return-reason.server.js";
+import { getShopSyncStatus } from "../models/sync.server.js";
 import { parseDays } from "../utils.server.js";
 import { DateRangeSelector } from "../components/DateRangeSelector.jsx";
 import { AppBanners } from "../components/AppBanners.jsx";
@@ -28,17 +30,18 @@ export const loader = async ({ request }) => {
   const url = new URL(request.url);
   const days = parseDays(url.searchParams);
 
-  const [reasonBreakdown, reasonTrend, productReasons] = await Promise.all([
+  const [reasonBreakdown, reasonTrend, productReasons, syncStatus] = await Promise.all([
     getReturnReasonBreakdown(shop, days),
     getReturnReasonTrend(shop, days),
     getReturnReasonsByProduct(shop, days),
+    getShopSyncStatus(shop),
   ]);
 
-  return json({ reasonBreakdown, reasonTrend, productReasons, days });
+  return json({ reasonBreakdown, reasonTrend, productReasons, days, syncStatus });
 };
 
 export default function ReturnsPage() {
-  const { reasonBreakdown, reasonTrend, productReasons, days } = useLoaderData();
+  const { reasonBreakdown, reasonTrend, productReasons, days, syncStatus } = useLoaderData();
   const navigate = useNavigate();
   const { planName, isBeta } = useOutletContext() || {};
 
@@ -64,6 +67,17 @@ export default function ReturnsPage() {
       <AppBanners />
       <Page title="Return Reason Analytics" backAction={{ url: "/app" }}>
         <BlockStack gap="500">
+        {syncStatus.status === "pending" && reasonBreakdown.length === 0 ? (
+          <Card>
+            <EmptyState
+              heading="No return reason data"
+              action={{ content: "Sync order data", url: "/app/sync" }}
+            >
+              <p>Sync your Shopify orders to see return reason analytics.</p>
+            </EmptyState>
+          </Card>
+        ) : (
+        <>
         <Box paddingInlineEnd="300">
           <InlineGrid columns="1fr auto" alignItems="center">
             <Text variant="headingMd" as="h2">Return Reasons</Text>
@@ -161,6 +175,8 @@ export default function ReturnsPage() {
             </Card>
           </Layout.Section>
         </Layout>
+        </>
+        )}
         </BlockStack>
       </Page>
     </>

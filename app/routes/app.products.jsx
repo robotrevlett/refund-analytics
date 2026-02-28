@@ -9,11 +9,13 @@ import {
   DataTable,
   Box,
   InlineGrid,
+  EmptyState,
 } from "@shopify/polaris";
 import { useCallback, useState } from "react";
 import { authenticate } from "../shopify.server.js";
 import { getProductRefunds, getTopRefundedProducts } from "../models/refund.server.js";
 import { getReturnReasonsByProduct } from "../models/return-reason.server.js";
+import { getShopSyncStatus } from "../models/sync.server.js";
 import { parseDays, getShopCurrency } from "../utils.server.js";
 import { DateRangeSelector } from "../components/DateRangeSelector.jsx";
 import { useCurrencyFormatter } from "../components/useCurrencyFormatter.js";
@@ -25,18 +27,19 @@ export const loader = async ({ request }) => {
   const url = new URL(request.url);
   const days = parseDays(url.searchParams);
 
-  const [topProducts, productRefunds, productReasons, currency] = await Promise.all([
+  const [topProducts, productRefunds, productReasons, currency, syncStatus] = await Promise.all([
     getTopRefundedProducts(shop, days, 50),
     getProductRefunds(shop, days),
     getReturnReasonsByProduct(shop, days),
     getShopCurrency(shop),
+    getShopSyncStatus(shop),
   ]);
 
-  return json({ topProducts, productRefunds, productReasons, days, currency });
+  return json({ topProducts, productRefunds, productReasons, days, currency, syncStatus });
 };
 
 export default function ProductsPage() {
-  const { topProducts, productRefunds, productReasons, days, currency } = useLoaderData();
+  const { topProducts, productRefunds, productReasons, days, currency, syncStatus } = useLoaderData();
   const navigate = useNavigate();
   const formatCurrency = useCurrencyFormatter(currency);
 
@@ -66,6 +69,17 @@ export default function ProductsPage() {
       <AppBanners />
       <Page title="Product Refund Breakdown" backAction={{ url: "/app" }}>
         <BlockStack gap="500">
+        {syncStatus.status === "pending" && topProducts.length === 0 ? (
+          <Card>
+            <EmptyState
+              heading="No product refund data"
+              action={{ content: "Sync order data", url: "/app/sync" }}
+            >
+              <p>Sync your Shopify orders to see product-level refund breakdowns.</p>
+            </EmptyState>
+          </Card>
+        ) : (
+        <>
         <Box paddingInlineEnd="300">
           <InlineGrid columns="1fr auto" alignItems="center">
             <Text variant="headingMd" as="h2">By Product</Text>
@@ -163,6 +177,8 @@ export default function ProductsPage() {
             </Card>
           </Layout.Section>
         </Layout>
+        </>
+        )}
         </BlockStack>
       </Page>
     </>
