@@ -40,6 +40,9 @@ export default defineConfig({
   build: {
     assetsInlineLimit: 0,
   },
+  esbuild: {
+    jsx: "automatic",
+  },
   test: {
     environment: "jsdom",
     globals: true,

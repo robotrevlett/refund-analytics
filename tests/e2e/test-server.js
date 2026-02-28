@@ -13,6 +13,7 @@ const DB_PATH = resolve("prisma/e2e-test.db");
 // Set up environment
 process.env.DATABASE_URL = `file:${DB_PATH}`;
 process.env.E2E_TEST = "1";
+process.env.BETA_MODE = "1";
 process.env.PORT = process.env.PORT || "3100";
 process.env.SHOPIFY_API_KEY = "test-api-key";
 process.env.SHOPIFY_API_SECRET = "test-api-secret";

@@ -4,6 +4,37 @@ import { execSync } from "child_process";
 import { existsSync, unlinkSync } from "fs";
 import { resolve } from "path";
 
+// Mock window.matchMedia for Polaris (called at module load time)
+if (typeof window !== "undefined" && !window.matchMedia) {
+  window.matchMedia = (query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  });
+}
+
+// Mock localStorage for jsdom (unavailable for opaque origins)
+if (typeof globalThis !== "undefined") {
+  const store = new Map();
+  const localStorageMock = {
+    getItem: (key) => store.get(key) ?? null,
+    setItem: (key, value) => store.set(key, String(value)),
+    removeItem: (key) => store.delete(key),
+    clear: () => store.clear(),
+    get length() { return store.size; },
+    key: (i) => [...store.keys()][i] ?? null,
+  };
+  if (typeof window !== "undefined") {
+    Object.defineProperty(window, "localStorage", { value: localStorageMock, writable: true });
+  }
+  globalThis.localStorage = localStorageMock;
+}
+
 const TEST_DB_PATH = resolve("prisma/test.db");
 const TEST_DB_URL = `file:${TEST_DB_PATH}`;
 

@@ -49,7 +49,7 @@ app/
 │   ├── auth.$.jsx        # OAuth catch-all (required by Shopify)
 │   └── webhooks.jsx      # Webhook handler (action-only route)
 ├── models/           # Data access layer (Prisma queries, sync logic)
-├── components/       # Shared Polaris-based UI components
+├── components/       # Shared Polaris-based UI components (AppBanners, BetaBanner, ReviewPrompt, etc.)
 ├── shopify.server.js # Shopify app config, auth, session storage
 └── db.server.js      # Prisma client singleton
 ```
@@ -99,11 +99,22 @@ Shopify Bulk Operations API **cannot nest connections inside list fields**. `Ord
 
 This is the core architectural constraint — do not try to fetch refundLineItems in a bulk operation.
 
+### Beta Mode & Go-to-Market
+
+The app supports a **beta mode** (`BETA_MODE=1` env var) for early tester outreach:
+- Skips billing checks — all features free (planName defaults to "Pro")
+- `BetaBanner` renders on all pages with a feedback survey link
+- `ReviewPrompt` renders after 14 days of app usage (based on `Shop.installedAt`)
+- ReviewPrompt shows max 3 times (tracked in localStorage), then hides permanently
+
+**Key architectural note**: Banners render inside child routes via `<AppBanners />` component, NOT in the layout `app.jsx`. Shopify's `AppProvider` strips extra siblings of `<ui-nav-menu>` during client-side hydration. The outlet context passes `isBeta` and `installedAt` from the layout loader to child routes.
+
 ### Database
 
 - **Prisma** with SQLite (dev) / PostgreSQL (prod)
 - Schema at `prisma/schema.prisma`
 - Key models: `Session`, `Shop`, `OrderRecord`, `RefundRecord`, `ReturnReasonRecord`
+- `Shop.installedAt` tracks when the app was installed (used for ReviewPrompt timing)
 - `RefundRecord.refundDate` = the refund's createdAt, NOT the order date. This is the app's core differentiator.
 - `RefundRecord.lineItems` is a JSON string — parse with `JSON.parse()` when reading
 
@@ -141,19 +152,21 @@ mutation { bulkOperationRunQuery(query: "{ orders { edges { node { ... } } } }")
 - **Vitest** with singleFork pool (SQLite locking), jsdom environment
 - **MSW** for intercepting Shopify GraphQL calls
 - SQLite test DB — `global.prismaClient` set in setup.js to share with model imports
-- 49 tests across 6 files
+- `tests/setup.js` mocks `window.matchMedia` (for Polaris) and `localStorage` (for jsdom)
+- 67 tests across 9 files
 - Run: `npm test`
 
 ### E2E (Playwright)
 - **Playwright** with Chromium, testing all pages
 - Mock auth via `E2E_TEST=1` env var (bypasses Shopify auth in shopify.server.js)
+- Beta mode enabled via `BETA_MODE=1` in test server
 - Seed script at `tests/e2e/seed.js` creates realistic test data
-- 20 tests across 6 spec files
+- 31 tests across 7 spec files (includes beta mode & review prompt tests)
 - Run: `npm run test:e2e`
 
 ### Test Data
 - Unit fixtures at `tests/fixtures/` — orders, refunds, returns, JSONL samples
-- E2E seed at `tests/e2e/seed.js` — 20 orders, 8 refunds, 6 return reasons
+- E2E seed at `tests/e2e/seed.js` — 20 orders, 8 refunds, 6 return reasons, shop installed 15 days ago
 - Covers edge cases: partial refunds, multi-refunds, $0 restocks, multi-currency, refund date != order date
 
 ### Running Tests
@@ -195,4 +208,5 @@ Run `npm run test:e2e` for e2e tests (requires the test server or uses webServer
 - Don't store sensitive data (access tokens are in Session model, managed by Shopify library)
 - Don't skip GDPR webhook handlers — required for app store approval
 - Don't use `@shopify/polaris` v11 patterns — we're on v12+ (BlockStack, not Stack)
+- Don't render extra components as siblings of `<ui-nav-menu>` in `app.jsx` — Shopify AppProvider strips them during hydration. Use `<AppBanners />` inside child routes instead.
 - Don't let docs drift from code — update docs in the same commit as the code change

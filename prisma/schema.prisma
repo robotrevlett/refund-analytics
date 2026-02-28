@@ -24,6 +24,7 @@ model Shop {
   id              String    @id // shop domain (e.g. "my-store.myshopify.com")
   currency        String    @default("USD")
   planName        String?   // Managed pricing plan name (e.g. "Starter", "Pro")
+  installedAt     DateTime  @default(now())
   lastSyncAt      DateTime?
   syncStatus      String    @default("pending") // pending, running, completed, failed
   syncOperationId String?

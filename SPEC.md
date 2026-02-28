@@ -84,7 +84,7 @@ Shopify's Bulk Operations API cannot nest connections inside list fields. This m
 - `productTitle`, `sku`, `quantity`
 
 **Shop** — per-install metadata
-- `id` (shop domain), `currency`, `lastSyncAt`, `syncStatus`
+- `id` (shop domain), `currency`, `installedAt`, `lastSyncAt`, `syncStatus`
 
 ### Webhooks
 - `refunds/create` — real-time refund tracking
@@ -135,6 +135,16 @@ A fixture generator creates realistic test data:
 ## Pricing
 
 $9-19/mo — undercuts Better Reports ($20-100/mo) and general reporting tools.
+
+## Beta Mode (Go-to-Market)
+
+Set `BETA_MODE=1` env var to enable beta mode for early tester outreach:
+- All features unlocked for free (billing checks skipped)
+- **BetaBanner**: Dismissible info banner on all pages linking to a feedback survey
+- **ReviewPrompt**: Success banner asking for Shopify App Store review, appears after 14 days of usage, dismissible up to 3 times before hiding permanently
+- Both banners use localStorage for dismissal state (per-browser persistence)
+
+To transition out of beta: remove `BETA_MODE=1` and enable managed pricing.
 
 ## Out of Scope (v1)
 - Export to CSV/PDF (v2)

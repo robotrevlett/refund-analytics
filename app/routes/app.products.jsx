@@ -17,6 +17,7 @@ import { getReturnReasonsByProduct } from "../models/return-reason.server.js";
 import { parseDays, getShopCurrency } from "../utils.server.js";
 import { DateRangeSelector } from "../components/DateRangeSelector.jsx";
 import { useCurrencyFormatter } from "../components/useCurrencyFormatter.js";
+import { AppBanners } from "../components/AppBanners.jsx";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -61,8 +62,10 @@ export default function ProductsPage() {
   }, []);
 
   return (
-    <Page title="Product Refund Breakdown" backAction={{ url: "/app" }}>
-      <BlockStack gap="500">
+    <>
+      <AppBanners />
+      <Page title="Product Refund Breakdown" backAction={{ url: "/app" }}>
+        <BlockStack gap="500">
         <Box paddingInlineEnd="300">
           <InlineGrid columns="1fr auto" alignItems="center">
             <Text variant="headingMd" as="h2">By Product</Text>
@@ -160,7 +163,8 @@ export default function ProductsPage() {
             </Card>
           </Layout.Section>
         </Layout>
-      </BlockStack>
-    </Page>
+        </BlockStack>
+      </Page>
+    </>
   );
 }
