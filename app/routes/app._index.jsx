@@ -119,10 +119,7 @@ export default function Dashboard() {
                   {trend.length > 0 ? (
                     <BlockStack gap="400">
                       <BarChart
-                        data={trend.map((row) => ({
-                          label: row.date,
-                          value: row.amount,
-                        }))}
+                        data={trend}
                         formatValue={formatCurrency}
                       />
                       <DataTable

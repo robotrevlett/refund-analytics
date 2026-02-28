@@ -1,42 +1,69 @@
-import { BlockStack, InlineStack, Text, Box } from "@shopify/polaris";
+import { useState, useEffect } from "react";
+import { Box } from "@shopify/polaris";
+import {
+  BarChart as RechartsBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
+function ClientOnly({ children, fallback = null }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted ? children() : fallback;
+}
+
+function formatDateTick(dateStr) {
+  const [, month, day] = dateStr.split("-");
+  const monthNames = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  ];
+  return `${monthNames[parseInt(month, 10) - 1]} ${parseInt(day, 10)}`;
+}
 
 /**
- * Simple horizontal bar chart using Polaris primitives.
- * Each row shows a label, bar, and value.
+ * Bar chart for refund trend data, powered by Recharts.
+ * Expects data as [{ date, count, amount }].
+ *
+ * Note: Recharts renders SVG, not Polaris components. This is an accepted
+ * exception — Polaris has no charting component and @shopify/polaris-viz
+ * is archived. We use Polaris CSS custom properties for visual consistency.
  */
-export function BarChart({ data, formatValue, maxItems = 20 }) {
+export function BarChart({ data, formatValue }) {
   if (!data || data.length === 0) return null;
 
-  const items = data.slice(0, maxItems);
-  const maxVal = Math.max(...items.map((d) => d.value), 1);
-
   return (
-    <BlockStack gap="200">
-      {items.map((item, i) => (
-        <InlineStack key={i} gap="200" blockAlign="center" wrap={false}>
-          <Box minWidth="100px" maxWidth="140px">
-            <Text variant="bodySm" as="span" truncate>
-              {item.label}
-            </Text>
-          </Box>
-          <Box width="100%">
-            <div
-              style={{
-                height: "20px",
-                borderRadius: "var(--p-border-radius-100)",
-                backgroundColor: "var(--p-color-bg-fill-info)",
-                width: `${Math.max((item.value / maxVal) * 100, 2)}%`,
-                transition: "width 0.3s ease",
-              }}
+    <ClientOnly fallback={<Box minHeight="300px" />}>
+      {() => (
+        <ResponsiveContainer width="100%" height={300}>
+          <RechartsBarChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickFormatter={formatDateTick}
+              tick={{ fontSize: 12 }}
             />
-          </Box>
-          <Box minWidth="60px">
-            <Text variant="bodySm" as="span" alignment="end">
-              {formatValue ? formatValue(item.value) : item.value}
-            </Text>
-          </Box>
-        </InlineStack>
-      ))}
-    </BlockStack>
+            <YAxis
+              tickFormatter={formatValue}
+              tick={{ fontSize: 12 }}
+              width={80}
+            />
+            <Tooltip
+              formatter={(value) => [formatValue ? formatValue(value) : value, "Refunds"]}
+              labelFormatter={formatDateTick}
+            />
+            <Bar
+              dataKey="amount"
+              fill="var(--p-color-bg-fill-info)"
+              radius={[4, 4, 0, 0]}
+            />
+          </RechartsBarChart>
+        </ResponsiveContainer>
+      )}
+    </ClientOnly>
   );
 }

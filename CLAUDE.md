@@ -187,7 +187,7 @@ Run `npm run test:e2e` for e2e tests (requires the test server or uses webServer
 
 ## Style Guide
 
-- Use Polaris components for all UI — never raw HTML/CSS
+- Use Polaris components for all UI — never raw HTML/CSS (exception: charts use Recharts SVG, since `@shopify/polaris-viz` is archived; use Polaris CSS custom properties like `var(--p-color-bg-fill-info)` for visual consistency)
 - Use `#graphql` tagged template prefix for GraphQL queries (enables syntax highlighting)
 - Server-only code in `.server.js` files (Remix convention)
 - Keep route files focused on loader/action/component — extract logic to `models/`
