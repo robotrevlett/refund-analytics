@@ -161,6 +161,12 @@ export async function getShopSyncStatus(shop) {
 }
 
 export async function startBulkSync(admin, shop) {
+  // Guard against concurrent sync starts — if already running, return early
+  const existingShop = await db.shop.findUnique({ where: { id: shop } });
+  if (existingShop?.syncStatus === "running") {
+    return { success: false, errors: [{ message: "Sync already in progress" }] };
+  }
+
   await db.shop.upsert({
     where: { id: shop },
     update: { syncStatus: "running" },
