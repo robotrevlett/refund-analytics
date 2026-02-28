@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import { useLoaderData, useNavigate, useOutletContext } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -9,6 +9,7 @@ import {
   DataTable,
   Box,
   InlineGrid,
+  Banner,
 } from "@shopify/polaris";
 import { useCallback } from "react";
 import { authenticate } from "../shopify.server.js";
@@ -38,10 +39,21 @@ export const loader = async ({ request }) => {
 export default function ReturnsPage() {
   const { reasonBreakdown, reasonTrend, productReasons, days } = useLoaderData();
   const navigate = useNavigate();
+  const { planName } = useOutletContext() || {};
 
   const handleDaysChange = useCallback((value) => {
     navigate(`/app/returns?days=${value}`);
   }, [navigate]);
+
+  if (planName !== "Pro") {
+    return (
+      <Page title="Return Reason Analytics" backAction={{ url: "/app" }}>
+        <Banner title="Pro Plan Required" tone="warning">
+          <p>Return Reason Analytics is available on the Pro plan. Upgrade in the Shopify admin to access detailed return reason tracking.</p>
+        </Banner>
+      </Page>
+    );
+  }
 
   return (
     <Page title="Return Reason Analytics" backAction={{ url: "/app" }}>

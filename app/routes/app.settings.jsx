@@ -104,6 +104,20 @@ export default function SettingsPage() {
             </BlockStack>
           </Card>
         </Layout.Section>
+
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="400">
+              <Text variant="headingMd" as="h2">Legal</Text>
+              <Text>
+                <Link url="/app/privacy">Privacy Policy</Link>
+              </Text>
+              <Text>
+                <Link url="/app/terms">Terms of Service</Link>
+              </Text>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
       </Layout>
     </Page>
   );

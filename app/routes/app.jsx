@@ -5,6 +5,7 @@ import { AppProvider } from "@shopify/shopify-app-remix/react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { authenticate } from "../shopify.server.js";
 import db from "../db.server.js";
+import { syncSubscriptionStatus } from "../models/billing.server.js";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
@@ -29,11 +30,23 @@ export const loader = async ({ request }) => {
     }
   }
 
-  return json({ apiKey: process.env.SHOPIFY_API_KEY || "" });
+  // Sync subscription status (skip in E2E tests — default to Pro)
+  let planName = "Pro";
+  if (process.env.E2E_TEST !== "1") {
+    try {
+      const result = await syncSubscriptionStatus(admin, shop);
+      planName = result.planName;
+    } catch {
+      // Non-critical — planName stays null if sync fails
+      planName = null;
+    }
+  }
+
+  return json({ apiKey: process.env.SHOPIFY_API_KEY || "", planName });
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData();
+  const { apiKey, planName } = useLoaderData();
 
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey}>
@@ -44,7 +57,7 @@ export default function App() {
         <Link to="/app/sync">Data Sync</Link>
         <Link to="/app/settings">Settings</Link>
       </ui-nav-menu>
-      <Outlet />
+      <Outlet context={{ planName }} />
     </AppProvider>
   );
 }

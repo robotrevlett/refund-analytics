@@ -22,7 +22,7 @@ const screens = [
 async function capture() {
   const browser = await chromium.launch();
   const context = await browser.newContext({
-    viewport: { width: 1280, height: 900 },
+    viewport: { width: 1600, height: 900 },
   });
 
   for (const screen of screens) {
