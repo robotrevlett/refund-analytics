@@ -10,14 +10,15 @@ import {
   DataTable,
   Banner,
   Box,
-  Select,
 } from "@shopify/polaris";
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { authenticate } from "../shopify.server.js";
 import { getDashboardMetrics, getTopRefundedProducts, getRefundTrend } from "../models/refund.server.js";
+import { getReturnReasonBreakdown } from "../models/return-reason.server.js";
 import { getShopSyncStatus } from "../models/sync.server.js";
 import { parseDays } from "../utils.server.js";
 import { MetricCard } from "../components/MetricCard.jsx";
+import { DateRangeSelector } from "../components/DateRangeSelector.jsx";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -25,31 +26,24 @@ export const loader = async ({ request }) => {
   const url = new URL(request.url);
   const days = parseDays(url.searchParams);
 
-  const [metrics, topProducts, trend, syncStatus] = await Promise.all([
+  const [metrics, topProducts, trend, reasonBreakdown, syncStatus] = await Promise.all([
     getDashboardMetrics(shop, days),
     getTopRefundedProducts(shop, days, 10),
     getRefundTrend(shop, days),
+    getReturnReasonBreakdown(shop, days),
     getShopSyncStatus(shop),
   ]);
 
-  return json({ metrics, topProducts, trend, syncStatus, days });
+  return json({ metrics, topProducts, trend, reasonBreakdown, syncStatus, days });
 };
 
 export default function Dashboard() {
-  const { metrics, topProducts, trend, syncStatus, days } = useLoaderData();
+  const { metrics, topProducts, trend, reasonBreakdown, syncStatus, days } = useLoaderData();
   const navigate = useNavigate();
-  const [selectedDays, setSelectedDays] = useState(String(days));
 
   const handleDaysChange = useCallback((value) => {
-    setSelectedDays(value);
     navigate(`/app?days=${value}`);
   }, [navigate]);
-
-  const dateRangeOptions = [
-    { label: "Last 7 days", value: "7" },
-    { label: "Last 30 days", value: "30" },
-    { label: "Last 90 days", value: "90" },
-  ];
 
   const formatCurrency = (amount) =>
     new Intl.NumberFormat("en-US", {
@@ -73,13 +67,7 @@ export default function Dashboard() {
         <Box paddingInlineEnd="300">
           <InlineGrid columns="1fr auto" alignItems="center">
             <Text variant="headingMd" as="h2">Overview</Text>
-            <Select
-              label="Date range"
-              labelHidden
-              options={dateRangeOptions}
-              value={selectedDays}
-              onChange={handleDaysChange}
-            />
+            <DateRangeSelector days={days} onDaysChange={handleDaysChange} />
           </InlineGrid>
         </Box>
 
@@ -143,6 +131,29 @@ export default function Dashboard() {
                   />
                 ) : (
                   <Text tone="subdued">No refund data yet.</Text>
+                )}
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+
+          <Layout.Section variant="oneThird">
+            <Card>
+              <BlockStack gap="400">
+                <Text variant="headingMd" as="h2">Return Reasons</Text>
+                {reasonBreakdown.length > 0 ? (
+                  <DataTable
+                    columnContentTypes={["text", "text", "numeric"]}
+                    headings={["Reason", "Category", "Count"]}
+                    rows={reasonBreakdown.map((r) => [
+                      r.reason,
+                      r.category,
+                      r.count,
+                    ])}
+                  />
+                ) : (
+                  <Text tone="subdued">
+                    No return reason data for this period.
+                  </Text>
                 )}
               </BlockStack>
             </Card>

@@ -7,14 +7,14 @@ import {
   BlockStack,
   Text,
   DataTable,
-  Select,
   Box,
   InlineGrid,
 } from "@shopify/polaris";
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { authenticate } from "../shopify.server.js";
 import { getProductRefunds, getTopRefundedProducts } from "../models/refund.server.js";
 import { parseDays, getShopCurrency } from "../utils.server.js";
+import { DateRangeSelector } from "../components/DateRangeSelector.jsx";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -34,18 +34,10 @@ export const loader = async ({ request }) => {
 export default function ProductsPage() {
   const { topProducts, productRefunds, days, currency } = useLoaderData();
   const navigate = useNavigate();
-  const [selectedDays, setSelectedDays] = useState(String(days));
 
   const handleDaysChange = useCallback((value) => {
-    setSelectedDays(value);
     navigate(`/app/products?days=${value}`);
   }, [navigate]);
-
-  const dateRangeOptions = [
-    { label: "Last 7 days", value: "7" },
-    { label: "Last 30 days", value: "30" },
-    { label: "Last 90 days", value: "90" },
-  ];
 
   const formatCurrency = (amount) =>
     new Intl.NumberFormat("en-US", {
@@ -59,13 +51,7 @@ export default function ProductsPage() {
         <Box paddingInlineEnd="300">
           <InlineGrid columns="1fr auto" alignItems="center">
             <Text variant="headingMd" as="h2">By Product</Text>
-            <Select
-              label="Date range"
-              labelHidden
-              options={dateRangeOptions}
-              value={selectedDays}
-              onChange={handleDaysChange}
-            />
+            <DateRangeSelector days={days} onDaysChange={handleDaysChange} />
           </InlineGrid>
         </Box>
 
