@@ -24,10 +24,36 @@ const shopify = shopifyApp({
     : {}),
 });
 
+/**
+ * E2E test mock: bypass Shopify auth and return a fake admin context.
+ * Only active when E2E_TEST env var is set. Never in production.
+ */
+function createTestAuth() {
+  const testShop = "test-store.myshopify.com";
+  const mockAdmin = {
+    graphql: async () => ({
+      json: async () => ({ data: { shop: { currencyCode: "USD" } } }),
+    }),
+  };
+  const mockSession = { shop: testShop, accessToken: "test-token" };
+
+  return {
+    admin: async () => ({ admin: mockAdmin, session: mockSession }),
+    webhook: async (request) => ({
+      topic: request.headers.get("x-shopify-topic") || "UNKNOWN",
+      shop: testShop,
+      payload: {},
+      admin: mockAdmin,
+    }),
+  };
+}
+
+const isE2ETest = process.env.E2E_TEST === "1";
+
 export default shopify;
 export const apiVersion = ApiVersion.October25;
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
-export const authenticate = shopify.authenticate;
+export const authenticate = isE2ETest ? createTestAuth() : shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;
 export const login = shopify.login;
 export const registerWebhooks = shopify.registerWebhooks;
