@@ -41,7 +41,7 @@ export async function getTopRefundedProducts(shop, days = 30, limit = 10) {
     select: { lineItems: true },
   });
 
-  // Aggregate by product title
+  // Aggregate by SKU (falls back to title if no SKU)
   const productMap = new Map();
 
   for (const refund of refunds) {
@@ -53,8 +53,9 @@ export async function getTopRefundedProducts(shop, days = 30, limit = 10) {
     }
 
     for (const item of items) {
-      const key = item.title || "Unknown";
-      const existing = productMap.get(key) || { title: key, count: 0, amount: 0 };
+      const key = item.sku || item.title || "Unknown";
+      const title = item.title || "Unknown";
+      const existing = productMap.get(key) || { title, sku: item.sku || "", count: 0, amount: 0 };
       existing.count += item.quantity || 1;
       existing.amount += item.amount || 0;
       productMap.set(key, existing);

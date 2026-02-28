@@ -125,7 +125,7 @@ mutation { bulkOperationRunQuery(query: "{ orders { edges { node { ... } } } }")
 ```
 - Returns JSONL file with `__parentId` linking children to parents
 - Poll via `node(id:)` query or subscribe via `bulk_operations/finish` webhook
-- Max 5 concurrent bulk ops per shop (API 2026-01+)
+- Max 5 concurrent bulk ops per shop
 
 ### Webhooks (configured in shopify.app.toml)
 - `refunds/create` — new refund created

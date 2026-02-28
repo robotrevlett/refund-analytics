@@ -8,7 +8,8 @@ import {
   Text,
   Button,
   Banner,
-  ProgressBar,
+  Spinner,
+  InlineStack,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server.js";
 import {
@@ -81,8 +82,10 @@ export default function SyncPage() {
 
               {syncStatus.status === "running" && (
                 <BlockStack gap="200">
-                  <Text>Sync in progress...</Text>
-                  <ProgressBar progress={50} tone="primary" />
+                  <InlineStack gap="200" blockAlign="center">
+                    <Spinner size="small" />
+                    <Text>Sync in progress...</Text>
+                  </InlineStack>
                   <Text tone="subdued" variant="bodySm">
                     Large stores may take a few minutes. Refresh to check
                     progress.

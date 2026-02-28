@@ -166,8 +166,10 @@ describe("getTopRefundedProducts", () => {
     // Slim Fit Jeans: 20.01 + 79.99 = 100.00 (from refunds 1 and 2)
     // Classic Cotton T-Shirt: 29.99 (from refund 1)
     expect(products[0].title).toBe("Winter Puffer Jacket");
+    expect(products[0].sku).toBe("APP-JKT-003");
     expect(products[0].amount).toBeCloseTo(149.99, 2);
     expect(products[1].title).toBe("Slim Fit Jeans");
+    expect(products[1].sku).toBe("APP-JNS-002");
     expect(products[1].amount).toBeCloseTo(100.0, 2);
     expect(products[1].count).toBe(2); // appears in 2 refunds
   });
