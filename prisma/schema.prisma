@@ -35,7 +35,7 @@ model OrderRecord {
   shop      String
   name      String       // e.g. "#1001"
   orderDate DateTime     // createdAt of the order
-  totalAmount Float      // total price in shop currency
+  totalAmount Decimal @db.Decimal(12, 2) // total price in shop currency
   currency  String
   financialStatus String // PAID, PARTIALLY_REFUNDED, REFUNDED, etc.
   createdAt DateTime @default(now())
@@ -49,7 +49,7 @@ model RefundRecord {
   orderId   String
   orderName String
   refundDate DateTime // createdAt of the refund, NOT the order date
-  amount    Float
+  amount    Decimal @db.Decimal(12, 2)
   currency  String
   note      String?
   reason    String?  // from orderAdjustments: restock, damage, customer, other

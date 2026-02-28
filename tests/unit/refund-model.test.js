@@ -124,9 +124,9 @@ describe("getDashboardMetrics", () => {
 
     // Orders within 30 days: #1001 (200), #1002 (300), #1004 (150) = 650
     // Refunds within 30 days: Refund/1 (50), Refund/2 (79.99) = 129.99
-    expect(metrics.grossSales).toBeCloseTo(650, 0);
-    expect(metrics.totalRefunds).toBeCloseTo(129.99, 2);
-    expect(metrics.netRevenue).toBeCloseTo(520.01, 2);
+    expect(metrics.grossSales).toBe(650);
+    expect(metrics.totalRefunds).toBe(129.99);
+    expect(metrics.netRevenue).toBe(520.01);
     expect(metrics.refundRate).toBeCloseTo(20.0, 0); // 129.99/650 ≈ 20%
     expect(metrics.currency).toBe("USD");
   });
@@ -136,9 +136,9 @@ describe("getDashboardMetrics", () => {
 
     // All 4 orders: 200 + 300 + 500 + 150 = 1150
     // All 3 refunds: 50 + 79.99 + 149.99 = 279.98
-    expect(metrics.grossSales).toBeCloseTo(1150, 0);
-    expect(metrics.totalRefunds).toBeCloseTo(279.98, 2);
-    expect(metrics.netRevenue).toBeCloseTo(870.02, 2);
+    expect(metrics.grossSales).toBe(1150);
+    expect(metrics.totalRefunds).toBe(279.98);
+    expect(metrics.netRevenue).toBe(870.02);
   });
 
   it("returns zero metrics when no data in range", async () => {
@@ -167,10 +167,10 @@ describe("getTopRefundedProducts", () => {
     // Classic Cotton T-Shirt: 29.99 (from refund 1)
     expect(products[0].title).toBe("Winter Puffer Jacket");
     expect(products[0].sku).toBe("APP-JKT-003");
-    expect(products[0].amount).toBeCloseTo(149.99, 2);
+    expect(products[0].amount).toBe(149.99);
     expect(products[1].title).toBe("Slim Fit Jeans");
     expect(products[1].sku).toBe("APP-JNS-002");
-    expect(products[1].amount).toBeCloseTo(100.0, 2);
+    expect(products[1].amount).toBe(100);
     expect(products[1].count).toBe(2); // appears in 2 refunds
   });
 
@@ -296,12 +296,68 @@ describe("edge cases", () => {
 
     const metrics = await getDashboardMetrics(SHOP, 90);
     // $0 refund should not change total refund amount
-    expect(metrics.totalRefunds).toBeCloseTo(279.98, 2);
+    expect(metrics.totalRefunds).toBe(279.98);
   });
 
   it("counts unique orders with refunds", async () => {
     const metrics = await getDashboardMetrics(SHOP, 90);
     // 3 refunds across 3 different orders
     expect(metrics.ordersWithRefunds).toBe(3);
+  });
+
+  it("sums amounts without float drift (0.1 + 0.2 style)", async () => {
+    // Create refunds with values that would cause float issues: 0.10 + 0.20 = 0.30 exactly
+    await db.refundRecord.create({
+      data: {
+        id: "gid://shopify/Refund/drift1",
+        shop: SHOP,
+        orderId: "gid://shopify/Order/1",
+        orderName: "#1001",
+        refundDate: new Date(),
+        amount: 0.10,
+        currency: "USD",
+        lineItems: JSON.stringify([{ sku: "X", title: "X", quantity: 1, amount: "0.10" }]),
+      },
+    });
+    await db.refundRecord.create({
+      data: {
+        id: "gid://shopify/Refund/drift2",
+        shop: SHOP,
+        orderId: "gid://shopify/Order/1",
+        orderName: "#1001",
+        refundDate: new Date(),
+        amount: 0.20,
+        currency: "USD",
+        lineItems: JSON.stringify([{ sku: "X", title: "X", quantity: 1, amount: "0.20" }]),
+      },
+    });
+
+    const metrics = await getDashboardMetrics(SHOP, 90);
+    // With Decimal storage, 279.98 + 0.10 + 0.20 = 280.28 exactly
+    expect(metrics.totalRefunds).toBe(280.28);
+  });
+
+  it("preserves cent precision in per-product aggregation", async () => {
+    // Create multiple refunds with amounts that challenge float addition
+    for (let i = 0; i < 10; i++) {
+      await db.refundRecord.create({
+        data: {
+          id: `gid://shopify/Refund/cent${i}`,
+          shop: SHOP,
+          orderId: "gid://shopify/Order/99",
+          orderName: "#1099",
+          refundDate: new Date(),
+          amount: 33.33,
+          currency: "USD",
+          lineItems: JSON.stringify([{ sku: "CENT-TEST", title: "Cent Test", quantity: 1, amount: "33.33" }]),
+        },
+      });
+    }
+
+    const products = await getTopRefundedProducts(SHOP, 90, 20);
+    const centProduct = products.find((p) => p.sku === "CENT-TEST");
+    // 10 × 33.33 = 333.30 exactly (would drift with float accumulation)
+    expect(centProduct.amount).toBe(333.3);
+    expect(centProduct.count).toBe(10);
   });
 });

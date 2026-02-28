@@ -1,6 +1,13 @@
 import db from "../db.server.js";
 import { daysAgo } from "../utils.server.js";
 
+// Round to 2 decimal places after JS float accumulation.
+// Individual values are exact (Decimal in PG), but JS + accumulation
+// can drift at the ~15th digit. This clamps to cents at output boundaries.
+function cents(n) {
+  return Math.round(n * 100) / 100;
+}
+
 export async function getDashboardMetrics(shop, days = 30) {
   const since = daysAgo(days);
 
@@ -16,9 +23,10 @@ export async function getDashboardMetrics(shop, days = 30) {
     db.shop.findUnique({ where: { id: shop } }),
   ]);
 
-  const totalRefunds = refunds.reduce((sum, r) => sum + r.amount, 0);
-  const grossSales = orders.reduce((sum, o) => sum + o.totalAmount, 0);
-  const netRevenue = grossSales - totalRefunds;
+  // Prisma Decimal → Number, rounded to cents at the output boundary
+  const totalRefunds = cents(refunds.reduce((sum, r) => sum + Number(r.amount), 0));
+  const grossSales = cents(orders.reduce((sum, o) => sum + Number(o.totalAmount), 0));
+  const netRevenue = cents(grossSales - totalRefunds);
   const refundRate = grossSales > 0 ? (totalRefunds / grossSales) * 100 : 0;
   const currency = shopRecord?.currency || "USD";
 
@@ -57,12 +65,13 @@ export async function getTopRefundedProducts(shop, days = 30, limit = 10) {
       const title = item.title || "Unknown";
       const existing = productMap.get(key) || { title, sku: item.sku || "", count: 0, amount: 0 };
       existing.count += item.quantity || 1;
-      existing.amount += item.amount || 0;
+      existing.amount += Number(item.amount) || 0;
       productMap.set(key, existing);
     }
   }
 
   return Array.from(productMap.values())
+    .map((p) => ({ ...p, amount: cents(p.amount) }))
     .sort((a, b) => b.amount - a.amount)
     .slice(0, limit);
 }
@@ -83,13 +92,13 @@ export async function getRefundTrend(shop, days = 30) {
     const date = refund.refundDate.toISOString().split("T")[0];
     const existing = dateMap.get(date) || { date, count: 0, amount: 0 };
     existing.count += 1;
-    existing.amount += refund.amount;
+    existing.amount += Number(refund.amount);
     dateMap.set(date, existing);
   }
 
-  return Array.from(dateMap.values()).sort(
-    (a, b) => a.date.localeCompare(b.date),
-  );
+  return Array.from(dateMap.values())
+    .map((d) => ({ ...d, amount: cents(d.amount) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 export async function getProductRefunds(shop, days = 30) {
@@ -117,7 +126,7 @@ export async function getProductRefunds(shop, days = 30) {
         product: item.title || "Unknown",
         sku: item.sku || "",
         quantity: item.quantity || 1,
-        amount: item.amount || 0,
+        amount: Number(item.amount) || 0,
         date: refund.refundDate.toISOString().split("T")[0],
         orderName: refund.orderName,
         reason: refund.reason || "Unknown",

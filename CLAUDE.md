@@ -121,6 +121,13 @@ The app supports a **beta mode** (`BETA_MODE=1` env var) for early tester outrea
 - Dev branch: `main` (default), Test branch: `test`
 - Use direct (non-pooled) connections for migrations (advisory locks don't work through pooler)
 
+### Currency Precision Policy
+- **Storage**: Money columns use `Decimal(12,2)` in PostgreSQL (exact base-10). No floating-point drift on read/write.
+- **Ingestion**: Shopify GraphQL money strings are passed directly to Prisma without `parseFloat` — Prisma handles string → Decimal natively.
+- **Aggregation**: JS `Number` accumulation with `cents()` rounding at output boundaries. Individual values from PG are exact; `Math.round(n * 100) / 100` clamps sub-cent drift from JS addition.
+- **Line items**: Stored as JSON string amounts (from Shopify). Parsed with `Number()` at read time.
+- **Display**: `Intl.NumberFormat` via `useCurrencyFormatter` — inherently rounds to currency's minor unit.
+
 ## Shopify API Reference
 
 ### Scopes
