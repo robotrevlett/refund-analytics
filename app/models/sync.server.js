@@ -1,5 +1,7 @@
 import db from "../db.server.js";
 
+// Note: ORDERS_BULK_QUERY lacks #graphql tag intentionally — it's passed as
+// a string variable to bulkOperationRunQuery, not used as a tagged template.
 const ORDERS_BULK_QUERY = `
   {
     orders {
@@ -115,6 +117,11 @@ const REFUND_DETAIL_QUERY = `#graphql
   }
 `;
 
+// Max concurrent refund detail requests to stay within Shopify rate limits
+const REFUND_DETAIL_CONCURRENCY = 4;
+// Delay between batches (ms) to respect rate limits
+const REFUND_DETAIL_BATCH_DELAY = 500;
+
 export async function getShopSyncStatus(shop) {
   const shopRecord = await db.shop.findUnique({ where: { id: shop } });
 
@@ -130,7 +137,6 @@ export async function getShopSyncStatus(shop) {
 }
 
 export async function startBulkSync(admin, shop) {
-  // Ensure shop record exists
   await db.shop.upsert({
     where: { id: shop },
     update: { syncStatus: "running" },
@@ -179,7 +185,7 @@ export async function processCompletedSync(admin, shop, jsonlUrl) {
       .filter((r) => r.id && r.id.includes("/Refund/"))
       .map((r) => r.id);
 
-    // Phase 2: Fetch line item details for each refund
+    // Phase 2: Fetch line item details with rate-limited concurrency
     const refundDetails = await fetchRefundDetails(admin, refundIds);
 
     // Determine shop currency from first order
@@ -241,6 +247,8 @@ export async function processCompletedSync(admin, shop, jsonlUrl) {
           lineItems: JSON.stringify(lineItems),
           hasReturn: !!detail.return,
           returnId: detail.return?.id || null,
+          orderName: detail.order?.name || undefined,
+          currency: detail.totalRefundedSet?.shopMoney?.currencyCode || currency,
         },
         create: {
           id: detail.id,
@@ -251,7 +259,7 @@ export async function processCompletedSync(admin, shop, jsonlUrl) {
           amount: parseFloat(
             detail.totalRefundedSet?.shopMoney?.amount || 0,
           ),
-          currency,
+          currency: detail.totalRefundedSet?.shopMoney?.currencyCode || currency,
           note: detail.note || null,
           reason,
           lineItems: JSON.stringify(lineItems),
@@ -283,6 +291,11 @@ export async function processCompletedSync(admin, shop, jsonlUrl) {
 
 export async function downloadAndParseJSONL(url) {
   const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to download JSONL: ${response.status} ${response.statusText}`,
+    );
+  }
   const text = await response.text();
   return parseJSONL(text);
 }
@@ -292,7 +305,6 @@ export function parseJSONL(text) {
 
   const lines = text.trim().split("\n");
   const records = {};
-  const rootRecords = [];
 
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -309,9 +321,7 @@ export function parseJSONL(text) {
 
     records[obj.id] = obj;
 
-    if (!obj.__parentId) {
-      rootRecords.push(obj);
-    } else {
+    if (obj.__parentId) {
       const parent = records[obj.__parentId];
       if (parent) {
         if (!parent._children) parent._children = [];
@@ -323,20 +333,37 @@ export function parseJSONL(text) {
   return Object.values(records);
 }
 
+/**
+ * Fetch refund line item details with rate-limited concurrency.
+ * Processes refunds in batches to stay within Shopify's GraphQL rate limits.
+ */
 async function fetchRefundDetails(admin, refundIds) {
   const details = [];
 
-  for (const refundId of refundIds) {
-    try {
-      const response = await admin.graphql(REFUND_DETAIL_QUERY, {
-        variables: { id: refundId },
-      });
-      const { data } = await response.json();
-      if (data.node) {
-        details.push(data.node);
+  for (let i = 0; i < refundIds.length; i += REFUND_DETAIL_CONCURRENCY) {
+    const batch = refundIds.slice(i, i + REFUND_DETAIL_CONCURRENCY);
+
+    const batchResults = await Promise.allSettled(
+      batch.map(async (refundId) => {
+        const response = await admin.graphql(REFUND_DETAIL_QUERY, {
+          variables: { id: refundId },
+        });
+        const { data } = await response.json();
+        return data.node;
+      }),
+    );
+
+    for (const result of batchResults) {
+      if (result.status === "fulfilled" && result.value) {
+        details.push(result.value);
+      } else if (result.status === "rejected") {
+        console.warn("Failed to fetch refund detail:", result.reason?.message);
       }
-    } catch (error) {
-      console.warn(`Failed to fetch refund ${refundId}:`, error.message);
+    }
+
+    // Delay between batches to respect rate limits
+    if (i + REFUND_DETAIL_CONCURRENCY < refundIds.length) {
+      await new Promise((resolve) => setTimeout(resolve, REFUND_DETAIL_BATCH_DELAY));
     }
   }
 

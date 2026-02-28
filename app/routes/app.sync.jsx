@@ -24,11 +24,19 @@ export const loader = async ({ request }) => {
 
   const syncStatus = await getShopSyncStatus(shop);
 
-  // If a sync is running, poll for completion
-  if (syncStatus.status === "running" && syncStatus.operationId) {
-    const opStatus = await pollBulkOperation(admin, syncStatus.operationId);
-    if (opStatus.status === "COMPLETED" && opStatus.url) {
-      await processCompletedSync(admin, shop, opStatus.url);
+  // If a sync is running or just completed, poll and process
+  if (
+    (syncStatus.status === "running" || syncStatus.status === "completed") &&
+    syncStatus.operationId
+  ) {
+    try {
+      const opStatus = await pollBulkOperation(admin, syncStatus.operationId);
+      if (opStatus.status === "COMPLETED" && opStatus.url) {
+        await processCompletedSync(admin, shop, opStatus.url);
+      }
+    } catch (error) {
+      console.error("Sync processing error:", error);
+      // processCompletedSync already sets syncStatus to "failed" on error
     }
     return json({ syncStatus: await getShopSyncStatus(shop) });
   }
