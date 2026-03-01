@@ -465,6 +465,9 @@ const RETURN_REASON_MAP = {
   UNWANTED: { label: "Unwanted", category: "Preference" },
   NOT_AS_DESCRIBED: { label: "Not as described", category: "Accuracy" },
   WRONG_ITEM: { label: "Wrong item received", category: "Accuracy" },
+  DEFECTIVE: { label: "Damaged or defective", category: "Quality" },
+  // DAMAGED_DEFECTIVE was the pre-2026-01 enum value; keep as alias for
+  // any data synced under older API versions.
   DAMAGED_DEFECTIVE: { label: "Damaged or defective", category: "Quality" },
   STYLE: { label: "Style", category: "Preference" },
   COLOR: { label: "Color", category: "Preference" },

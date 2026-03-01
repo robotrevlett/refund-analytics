@@ -1,6 +1,5 @@
 import "@shopify/shopify-app-remix/adapters/node";
 import {
-  ApiVersion,
   AppDistribution,
   shopifyApp,
 } from "@shopify/shopify-app-remix/server";
@@ -10,7 +9,7 @@ import prisma from "./db.server.js";
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-  apiVersion: ApiVersion.October25,
+  apiVersion: "2026-01",
   scopes: process.env.SCOPES?.split(","),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
@@ -51,7 +50,7 @@ function createTestAuth() {
 const isE2ETest = process.env.E2E_TEST === "1";
 
 export default shopify;
-export const apiVersion = ApiVersion.October25;
+export const apiVersion = "2026-01";
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = isE2ETest ? createTestAuth() : shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;

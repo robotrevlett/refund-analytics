@@ -44,7 +44,7 @@ Store info, sync status, and data summary counts.
 | Framework | [Remix](https://remix.run/) + [Shopify CLI](https://shopify.dev/docs/apps/tools/cli) |
 | UI | [Polaris](https://polaris.shopify.com/) v13 |
 | Database | [Prisma](https://www.prisma.io/) + PostgreSQL ([Neon](https://neon.tech/) serverless) |
-| API | Shopify GraphQL Admin API (October 2025) |
+| API | Shopify GraphQL Admin API (January 2026) |
 | Charts | [Recharts](https://recharts.org/) (SVG bar charts styled with Polaris CSS vars) |
 | Testing | [Vitest](https://vitest.dev/) (unit/integration) + [Playwright](https://playwright.dev/) (e2e) |
 | CI/CD | GitHub Actions |

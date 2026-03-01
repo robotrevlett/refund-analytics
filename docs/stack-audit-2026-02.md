@@ -8,7 +8,7 @@ Assessment of our current stack against Shopify's latest best practices, with up
 |------|-----------|----------------------|--------|
 | Framework | Remix + `@shopify/shopify-app-remix` v3 | React Router v7 + `@shopify/shopify-app-react-router` | **Behind** |
 | UI | Polaris React v13 (`@shopify/polaris`) | Polaris Web Components (CDN) | **Behind** |
-| API Version | GraphQL Admin API `2025-10` | `2026-01` (stable since Jan 2026) | **One behind** |
+| API Version | GraphQL Admin API `2026-01` | `2026-01` (stable since Jan 2026) | **Current** |
 | App Bridge | CDN (via Shopify template) | CDN (unversioned) | OK |
 | Database | PostgreSQL (Neon) + Prisma | PostgreSQL + Prisma | OK |
 | Session Storage | `@shopify/shopify-app-session-storage-prisma` v5 | Same (v5.1.2 latest) | OK |
@@ -136,12 +136,12 @@ No structural changes. New `orders/link_requested` topic in `2026-01` (not relev
 ### Before App Store Launch
 1. ~~Decimal money math~~ (done — PR #17)
 2. Set up billing (Managed Pricing)
-3. Test against API version `2026-01` (Return Reason Definition changes)
+3. ~~Test against API version `2026-01` (Return Reason Definition changes)~~ (done — issue #18)
 
 ### Post-Launch (v2 Planning)
 4. Migrate Remix → React Router v7
 5. Migrate Polaris React → Polaris Web Components
-6. Upgrade API version to `2026-01` or `2026-04`
+6. Upgrade API version to `2026-04` when available
 
 ### Sources
 - [Shopify Developer Changelog](https://shopify.dev/changelog)
