@@ -41,6 +41,20 @@ export const action = async ({ request }) => {
       }
       break;
 
+    case "APP_SUBSCRIPTIONS_UPDATE":
+      // Fires when a merchant's subscription changes (upgrade, downgrade, cancel).
+      // Sync the plan name to the Shop record for offline access.
+      try {
+        const subName = payload.app_subscription?.name || null;
+        await db.shop.updateMany({
+          where: { id: shop },
+          data: { planName: subName },
+        });
+      } catch (error) {
+        console.error(`Failed to handle subscription update for ${shop}:`, error);
+      }
+      break;
+
     case "CUSTOMERS_DATA_REQUEST":
       // This app stores order/refund data by shop, not by individual customer.
       // No customer-specific data to export beyond what Shopify already provides.
