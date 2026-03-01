@@ -5,12 +5,11 @@ import { AppProvider } from "@shopify/shopify-app-remix/react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { authenticate } from "../shopify.server.js";
 import db from "../db.server.js";
-import { syncSubscriptionStatus } from "../models/billing.server.js";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { admin, session, billing } = await authenticate.admin(request);
   const shop = session.shop;
   const isBeta = process.env.BETA_MODE === "1";
 
@@ -35,10 +34,25 @@ export const loader = async ({ request }) => {
   let planName = "Pro";
   if (!isBeta && process.env.E2E_TEST !== "1") {
     try {
-      const result = await syncSubscriptionStatus(admin, shop);
-      planName = result.planName;
+      // billing.require() checks for an active subscription matching any
+      // plan in the billing config. If none exists, it redirects the merchant
+      // to the Shopify-hosted plan selection page (Managed Pricing).
+      const { appSubscriptions } = await billing.require({
+        plans: ["Starter", "Pro"],
+        isTest: process.env.NODE_ENV !== "production",
+        onFailure: async () => billing.request({ plan: "Starter" }),
+      });
+      planName = appSubscriptions[0]?.name || null;
+
+      // Sync plan name to DB for offline access (webhooks, etc.)
+      if (planName) {
+        await db.shop.updateMany({
+          where: { id: shop },
+          data: { planName },
+        });
+      }
     } catch {
-      // Non-critical — planName stays null if sync fails
+      // Non-critical — planName stays null if billing check fails
       planName = null;
     }
   }
