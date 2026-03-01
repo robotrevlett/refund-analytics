@@ -23,15 +23,17 @@ async function simulateRefundCreate(db, shop, payload) {
   const { id, order_id, created_at, transactions, refund_line_items, note } =
     payload;
 
-  const totalAmount = (transactions || [])
-    .filter((t) => t.kind === "refund" && t.status === "success")
-    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+  const refundTransactions = (transactions || [])
+    .filter((t) => t.kind === "refund" && t.status === "success");
+  const totalAmount = refundTransactions
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0)
+    .toFixed(2);
 
   const lineItems = (refund_line_items || []).map((rli) => ({
     sku: rli.line_item?.sku || "",
     title: rli.line_item?.title || "",
     quantity: rli.quantity,
-    amount: parseFloat(rli.subtotal || 0),
+    amount: rli.subtotal || "0",
   }));
 
   await db.refundRecord.upsert({
@@ -96,14 +98,14 @@ describe("webhook: refunds/create", () => {
     expect(record).toBeDefined();
     expect(record.shop).toBe(SHOP);
     expect(record.orderId).toBe("gid://shopify/Order/1001");
-    expect(record.amount).toBeCloseTo(49.99, 2);
+    expect(Number(record.amount)).toBe(49.99);
     expect(record.note).toContain("sizing issue");
 
     const lineItems = JSON.parse(record.lineItems);
     expect(lineItems).toHaveLength(2);
     expect(lineItems[0].title).toBe("Classic Cotton T-Shirt");
     expect(lineItems[0].sku).toBe("APP-TSH-001");
-    expect(lineItems[1].amount).toBe(20);
+    expect(Number(lineItems[1].amount)).toBe(20);
   });
 
   it("upserts on duplicate refund ID", async () => {
@@ -128,7 +130,7 @@ describe("webhook: refunds/create", () => {
     const record = await db.refundRecord.findUnique({
       where: { id: "gid://shopify/Refund/9999" },
     });
-    expect(record.amount).toBe(0);
+    expect(Number(record.amount)).toBe(0);
   });
 });
 

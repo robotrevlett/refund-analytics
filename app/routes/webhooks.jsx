@@ -94,9 +94,12 @@ async function handleRefundCreate(shop, payload) {
   const { id, order_id, created_at, transactions, refund_line_items, note } =
     payload;
 
-  const totalAmount = (transactions || [])
-    .filter((t) => t.kind === "refund" && t.status === "success")
-    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+  // Sum transaction amounts as strings to avoid float drift
+  const refundTransactions = (transactions || [])
+    .filter((t) => t.kind === "refund" && t.status === "success");
+  const totalAmount = refundTransactions
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0)
+    .toFixed(2);
 
   const currency =
     (transactions || []).find((t) => t.currency)?.currency || "USD";
@@ -105,7 +108,7 @@ async function handleRefundCreate(shop, payload) {
     sku: rli.line_item?.sku || "",
     title: rli.line_item?.title || "",
     quantity: rli.quantity,
-    amount: parseFloat(rli.subtotal || 0),
+    amount: rli.subtotal || "0",
   }));
 
   // Look up order name from DB if available

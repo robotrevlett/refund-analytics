@@ -248,9 +248,7 @@ export async function processCompletedSync(admin, shop, jsonlUrl) {
       await db.orderRecord.upsert({
         where: { id: order.id },
         update: {
-          totalAmount: parseFloat(
-            order.totalPriceSet?.shopMoney?.amount || 0,
-          ),
+          totalAmount: order.totalPriceSet?.shopMoney?.amount || "0",
           financialStatus: order.displayFinancialStatus || "PAID",
         },
         create: {
@@ -258,9 +256,7 @@ export async function processCompletedSync(admin, shop, jsonlUrl) {
           shop,
           name: order.name || "",
           orderDate: new Date(order.createdAt),
-          totalAmount: parseFloat(
-            order.totalPriceSet?.shopMoney?.amount || 0,
-          ),
+          totalAmount: order.totalPriceSet?.shopMoney?.amount || "0",
           currency,
           financialStatus: order.displayFinancialStatus || "PAID",
         },
@@ -276,7 +272,7 @@ export async function processCompletedSync(admin, shop, jsonlUrl) {
           sku: node.lineItem?.sku || "",
           title: node.lineItem?.title || "",
           quantity: node.quantity,
-          amount: parseFloat(node.subtotalSet?.shopMoney?.amount || 0),
+          amount: node.subtotalSet?.shopMoney?.amount || "0",
         }),
       );
 
@@ -290,9 +286,7 @@ export async function processCompletedSync(admin, shop, jsonlUrl) {
       await db.refundRecord.upsert({
         where: { id: detail.id },
         update: {
-          amount: parseFloat(
-            detail.totalRefundedSet?.shopMoney?.amount || 0,
-          ),
+          amount: detail.totalRefundedSet?.shopMoney?.amount || "0",
           note: detail.note || null,
           reason,
           lineItems: JSON.stringify(lineItems),
@@ -307,9 +301,7 @@ export async function processCompletedSync(admin, shop, jsonlUrl) {
           orderId: detail.order?.id || "",
           orderName: detail.order?.name || "",
           refundDate: new Date(detail.createdAt),
-          amount: parseFloat(
-            detail.totalRefundedSet?.shopMoney?.amount || 0,
-          ),
+          amount: detail.totalRefundedSet?.shopMoney?.amount || "0",
           currency: detail.totalRefundedSet?.shopMoney?.currencyCode || currency,
           note: detail.note || null,
           reason,
