@@ -1,4 +1,3 @@
-import { json } from "@remix-run/node";
 import {
   Page,
   Card,
@@ -12,7 +11,7 @@ import { authenticate } from "../shopify.server.js";
 
 export const loader = async ({ request }) => {
   await authenticate.admin(request);
-  return json({});
+  return {};
 };
 
 export default function AppPrivacyPolicy() {

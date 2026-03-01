@@ -1,6 +1,6 @@
 /**
  * E2E test server setup script.
- * Prepares the database and starts the Remix dev server with mock auth.
+ * Prepares the database and starts the React Router dev server with mock auth.
  *
  * Usage: node tests/e2e/test-server.js
  */
@@ -24,8 +24,8 @@ console.log("Seeding e2e test data...");
 await seedE2EData();
 
 console.log("Starting dev server...");
-// Hand off to Remix dev server
-execSync(`npx remix vite:dev --port ${process.env.PORT}`, {
+// Hand off to React Router dev server
+execSync(`npx react-router dev --port ${process.env.PORT}`, {
   env: { ...process.env },
   stdio: "inherit",
 });

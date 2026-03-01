@@ -1,4 +1,4 @@
-import { useOutletContext } from "@remix-run/react";
+import { useOutletContext } from "react-router";
 import { BetaBanner } from "./BetaBanner.jsx";
 import { ReviewPrompt } from "./ReviewPrompt.jsx";
 

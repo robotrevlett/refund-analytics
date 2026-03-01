@@ -52,7 +52,7 @@ Any Shopify store processing 50+ orders/month with meaningful return rates — f
 ## Technical Architecture
 
 ### Stack
-- **Framework**: Remix (Shopify CLI template)
+- **Framework**: React Router v7 (Shopify CLI template)
 - **UI**: Polaris React components
 - **Database**: Prisma + SQLite (dev) / PostgreSQL (prod)
 - **API**: Shopify GraphQL Admin API

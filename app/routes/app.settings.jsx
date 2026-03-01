@@ -1,5 +1,4 @@
-import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData } from "react-router";
 import {
   Page,
   Layout,
@@ -27,11 +26,11 @@ export const loader = async ({ request }) => {
     db.returnReasonRecord.count({ where: { shop } }),
   ]);
 
-  return json({
+  return {
     shop,
     syncStatus,
     dataCounts: { orders: orderCount, refunds: refundCount, returnReasons: returnReasonCount },
-  });
+  };
 };
 
 function syncStatusBadge(status) {
