@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Shopify app that shows merchants their real revenue after refunds. Built with Remix + Shopify CLI template, Polaris UI, Prisma ORM, GraphQL Admin API.
+Shopify app that shows merchants their real revenue after refunds. Built with React Router v7 + Shopify CLI template, Polaris UI, Prisma ORM, GraphQL Admin API.
 
 See `SPEC.md` for the full product spec.
 
@@ -11,7 +11,7 @@ See `SPEC.md` for the full product spec.
 ```bash
 # Development
 shopify app dev                    # Run locally with Cloudflare tunnel
-npm run dev                        # Run Remix dev server only (no Shopify tunnel)
+npm run dev                        # Run React Router dev server only (no Shopify tunnel)
 
 # Database
 npx prisma migrate dev             # Run migrations
@@ -39,7 +39,7 @@ shopify app generate extension     # Generate an app extension
 ### Directory Layout
 ```
 app/
-├── routes/           # Remix routes (file-based routing)
+├── routes/           # React Router v7 routes (file-based routing via @react-router/fs-routes)
 │   ├── app.jsx       # Layout wrapper (App Bridge + Polaris provider)
 │   ├── app._index.jsx    # Dashboard page
 │   ├── app.products.jsx  # Product breakdown page
@@ -62,13 +62,13 @@ export async function loader({ request }) {
   const { admin } = await authenticate.admin(request);
   // Use admin.graphql() for Shopify API calls
   // Use db for Prisma queries
-  return json({ data });
+  return { data };
 }
 
 export async function action({ request }) {
   const { admin } = await authenticate.admin(request);
   // Handle form submissions, sync triggers, etc.
-  return json({ result });
+  return { result };
 }
 ```
 
@@ -165,7 +165,7 @@ mutation { bulkOperationRunQuery(query: "{ orders { edges { node { ... } } } }")
 - `tests/setup.js` mocks `window.matchMedia` (for Polaris) and `localStorage` (for jsdom)
 - Default `DATABASE_URL` in vite.config.js points to `localhost:5432/refund_analytics_test`; override via `TEST_DATABASE_URL`
 - Migrations must be applied before running tests (`npx prisma migrate deploy`)
-- 67 tests across 9 files
+- 79 tests across 10 files
 - Run: `docker compose up -d && npm test`
 
 ### E2E (Playwright)
@@ -196,7 +196,7 @@ Run `npm run test:e2e` for e2e tests (requires the test server or uses webServer
 
 - Use Polaris components for all UI — never raw HTML/CSS (exception: charts use Recharts SVG, since `@shopify/polaris-viz` is archived; use Polaris CSS custom properties like `var(--p-color-bg-fill-info)` for visual consistency)
 - Use `#graphql` tagged template prefix for GraphQL queries (enables syntax highlighting)
-- Server-only code in `.server.js` files (Remix convention)
+- Server-only code in `.server.js` files (React Router convention)
 - Keep route files focused on loader/action/component — extract logic to `models/`
 - Use Prisma for all DB access — no raw SQL
 - Format currency with `useCurrencyFormatter` hook (locale-aware)

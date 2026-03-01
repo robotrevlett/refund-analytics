@@ -1,4 +1,4 @@
-import { vitePlugin as remix } from "@remix-run/dev";
+import { reactRouter } from "@react-router/dev/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
@@ -27,12 +27,10 @@ export default defineConfig({
     },
   },
   plugins: [
-    // Exclude Remix plugin during tests — it blocks .server.js imports
+    // Exclude React Router plugin during tests — it blocks .server.js imports
     ...(!isTest
       ? [
-          remix({
-            ignoredRouteFiles: ["**/.*"],
-          }),
+          reactRouter(),
         ]
       : []),
     tsconfigPaths(),

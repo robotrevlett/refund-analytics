@@ -1,5 +1,4 @@
-import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import { useLoaderData, useNavigate } from "react-router";
 import {
   Page,
   Layout,
@@ -35,7 +34,7 @@ export const loader = async ({ request }) => {
     getShopSyncStatus(shop),
   ]);
 
-  return json({ topProducts, productRefunds, productReasons, days, currency, syncStatus });
+  return { topProducts, productRefunds, productReasons, days, currency, syncStatus };
 };
 
 export default function ProductsPage() {
@@ -57,7 +56,7 @@ export default function ProductsPage() {
     if (!field) return 0;
     const diff = a[field] - b[field];
     return sortDirection === "ascending" ? diff : -diff;
-  });
+  };
 
   const handleSort = useCallback((index, direction) => {
     setSortIndex(index);

@@ -1,5 +1,4 @@
-import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation } from "react-router";
 import {
   Page,
   Layout,
@@ -43,10 +42,10 @@ export const loader = async ({ request }) => {
       console.error("Sync processing error:", error);
       // processCompletedSync already sets syncStatus to "failed" on error
     }
-    return json({ syncStatus: await getShopSyncStatus(shop) });
+    return { syncStatus: await getShopSyncStatus(shop) };
   }
 
-  return json({ syncStatus });
+  return { syncStatus };
 };
 
 export const action = async ({ request }) => {
@@ -54,7 +53,7 @@ export const action = async ({ request }) => {
   const shop = session.shop;
 
   const result = await startBulkSync(admin, shop);
-  return json({ result });
+  return { result };
 };
 
 export default function SyncPage() {

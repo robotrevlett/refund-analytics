@@ -1,5 +1,4 @@
-import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate, useOutletContext } from "@remix-run/react";
+import { useLoaderData, useNavigate, useOutletContext } from "react-router";
 import {
   Page,
   Layout,
@@ -37,7 +36,7 @@ export const loader = async ({ request }) => {
     getShopSyncStatus(shop),
   ]);
 
-  return json({ reasonBreakdown, reasonTrend, productReasons, days, syncStatus });
+  return { reasonBreakdown, reasonTrend, productReasons, days, syncStatus };
 };
 
 export default function ReturnsPage() {

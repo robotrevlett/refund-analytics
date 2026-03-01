@@ -41,7 +41,7 @@ Store info, sync status, and data summary counts.
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | [Remix](https://remix.run/) + [Shopify CLI](https://shopify.dev/docs/apps/tools/cli) |
+| Framework | [React Router v7](https://reactrouter.com/) + [Shopify CLI](https://shopify.dev/docs/apps/tools/cli) |
 | UI | [Polaris](https://polaris.shopify.com/) v13 |
 | Database | [Prisma](https://www.prisma.io/) + PostgreSQL ([Neon](https://neon.tech/) serverless) |
 | API | Shopify GraphQL Admin API (October 2025) |
@@ -139,7 +139,7 @@ Real-time updates come via webhooks (`refunds/create`, `orders/updated`, `bulk_o
 
 ```
 app/
-├── routes/              # Remix file-based routing
+├── routes/              # React Router v7 file-based routing
 │   ├── app.jsx          # Layout (App Bridge + Polaris + nav)
 │   ├── app._index.jsx   # Dashboard
 │   ├── app.products.jsx # Product breakdown
@@ -196,7 +196,7 @@ The app includes a production `Dockerfile` and `railway.json` for deployment to 
 
 **3. Deploy:**
 
-Railway will automatically build using the `Dockerfile` and start the app. The `docker-start` script runs Prisma migrations (`prisma migrate deploy`) before starting the Remix server.
+Railway will automatically build using the `Dockerfile` and start the app. The `docker-start` script runs Prisma migrations (`prisma migrate deploy`) before starting the React Router server.
 
 **4. Push Shopify config:**
 
