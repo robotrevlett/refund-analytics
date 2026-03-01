@@ -1,17 +1,5 @@
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate, useOutletContext } from "@remix-run/react";
-import {
-  Page,
-  Layout,
-  Card,
-  BlockStack,
-  Text,
-  DataTable,
-  Box,
-  InlineGrid,
-  Banner,
-  EmptyState,
-} from "@shopify/polaris";
 import { useCallback } from "react";
 import { authenticate } from "../shopify.server.js";
 import {
@@ -40,6 +28,48 @@ export const loader = async ({ request }) => {
   return json({ reasonBreakdown, reasonTrend, productReasons, days, syncStatus });
 };
 
+function SimpleTable({ headings, rows, columnContentTypes }) {
+  if (!rows || rows.length === 0) return null;
+  return (
+    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead>
+        <tr>
+          {headings.map((h, i) => (
+            <th
+              key={i}
+              style={{
+                textAlign: columnContentTypes?.[i] === "numeric" ? "right" : "left",
+                padding: "8px",
+                borderBottom: "1px solid var(--p-color-border)",
+              }}
+            >
+              {h}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, ri) => (
+          <tr key={ri}>
+            {row.map((cell, ci) => (
+              <td
+                key={ci}
+                style={{
+                  textAlign: columnContentTypes?.[ci] === "numeric" ? "right" : "left",
+                  padding: "8px",
+                  borderBottom: "1px solid var(--p-color-border)",
+                }}
+              >
+                {cell}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 export default function ReturnsPage() {
   const { reasonBreakdown, reasonTrend, productReasons, days, syncStatus } = useLoaderData();
   const navigate = useNavigate();
@@ -53,11 +83,11 @@ export default function ReturnsPage() {
     return (
       <>
         <AppBanners />
-        <Page title="Return Reason Analytics" backAction={{ url: "/app" }}>
-          <Banner title="Pro Plan Required" tone="warning">
+        <s-page title="Return Reason Analytics" back-action-url="/app">
+          <s-banner title="Pro Plan Required" tone="warning">
             <p>Return Reason Analytics is available on the Pro plan. Upgrade in the Shopify admin to access detailed return reason tracking.</p>
-          </Banner>
-        </Page>
+          </s-banner>
+        </s-page>
       </>
     );
   }
@@ -65,120 +95,118 @@ export default function ReturnsPage() {
   return (
     <>
       <AppBanners />
-      <Page title="Return Reason Analytics" backAction={{ url: "/app" }}>
-        <BlockStack gap="500">
+      <s-page title="Return Reason Analytics" back-action-url="/app">
+        <s-stack gap="500">
         {syncStatus.status === "pending" && reasonBreakdown.length === 0 ? (
-          <Card>
-            <EmptyState
-              heading="No return reason data"
-              action={{ content: "Sync order data", url: "/app/sync" }}
-            >
+          <s-section>
+            <s-stack gap="400">
+              <s-text variant="headingMd" as="h2">No return reason data</s-text>
               <p>Sync your Shopify orders to see return reason analytics.</p>
-            </EmptyState>
-          </Card>
+              <s-button
+                ref={(el) => {
+                  if (el) el.addEventListener("click", () => navigate("/app/sync"));
+                }}
+              >
+                Sync order data
+              </s-button>
+            </s-stack>
+          </s-section>
         ) : (
         <>
-        <Box paddingInlineEnd="300">
-          <InlineGrid columns="1fr auto" alignItems="center">
-            <Text variant="headingMd" as="h2">Return Reasons</Text>
+        <s-box padding-inline-end="300">
+          <s-grid columns="1fr auto" align-items="center">
+            <s-text variant="headingMd" as="h2">Return Reasons</s-text>
             <DateRangeSelector days={days} onDaysChange={handleDaysChange} />
-          </InlineGrid>
-        </Box>
+          </s-grid>
+        </s-box>
 
-        <Layout>
-          <Layout.Section>
-            <Card>
-              <BlockStack gap="400">
-                <Text variant="headingMd" as="h2">
-                  Reason Breakdown
-                </Text>
-                {reasonBreakdown.length > 0 ? (
-                  <DataTable
-                    columnContentTypes={["text", "text", "numeric", "numeric"]}
-                    headings={["Reason", "Category", "Count", "Items Returned"]}
-                    rows={reasonBreakdown.map((r) => [
-                      r.reason,
-                      r.category,
-                      r.count,
-                      r.quantity,
-                    ])}
-                    sortable={[false, false, true, true]}
-                  />
-                ) : (
-                  <Text tone="subdued">
-                    No return reason data for this period. Return reasons require
-                    Shopify's structured return reasons feature (Jan 2026+).
-                  </Text>
-                )}
-              </BlockStack>
-            </Card>
-          </Layout.Section>
+        <s-stack gap="500">
+          <s-section>
+            <s-stack gap="400">
+              <s-text variant="headingMd" as="h2">
+                Reason Breakdown
+              </s-text>
+              {reasonBreakdown.length > 0 ? (
+                <SimpleTable
+                  columnContentTypes={["text", "text", "numeric", "numeric"]}
+                  headings={["Reason", "Category", "Count", "Items Returned"]}
+                  rows={reasonBreakdown.map((r) => [
+                    r.reason,
+                    r.category,
+                    r.count,
+                    r.quantity,
+                  ])}
+                />
+              ) : (
+                <s-text tone="subdued">
+                  No return reason data for this period. Return reasons require
+                  Shopify's structured return reasons feature (Jan 2026+).
+                </s-text>
+              )}
+            </s-stack>
+          </s-section>
 
-          <Layout.Section>
-            <Card>
-              <BlockStack gap="400">
-                <Text variant="headingMd" as="h2">
-                  Reason Trends Over Time
-                </Text>
-                {reasonTrend.length > 0 ? (
-                  <DataTable
-                    columnContentTypes={["text", "text", "numeric", "numeric"]}
-                    headings={["Date", "Reason", "Count", "Qty Returned"]}
-                    rows={reasonTrend.map((r) => [
-                      r.date,
-                      r.reason,
-                      r.count,
-                      r.quantity,
-                    ])}
-                  />
-                ) : (
-                  <Text tone="subdued">No trend data for this period.</Text>
-                )}
-              </BlockStack>
-            </Card>
-          </Layout.Section>
+          <s-section>
+            <s-stack gap="400">
+              <s-text variant="headingMd" as="h2">
+                Reason Trends Over Time
+              </s-text>
+              {reasonTrend.length > 0 ? (
+                <SimpleTable
+                  columnContentTypes={["text", "text", "numeric", "numeric"]}
+                  headings={["Date", "Reason", "Count", "Qty Returned"]}
+                  rows={reasonTrend.map((r) => [
+                    r.date,
+                    r.reason,
+                    r.count,
+                    r.quantity,
+                  ])}
+                />
+              ) : (
+                <s-text tone="subdued">No trend data for this period.</s-text>
+              )}
+            </s-stack>
+          </s-section>
 
-          <Layout.Section>
-            <Card>
-              <BlockStack gap="400">
-                <Text variant="headingMd" as="h2">
-                  Return Reasons by Product
-                </Text>
-                {productReasons.length > 0 ? (
-                  <DataTable
-                    columnContentTypes={[
-                      "text",
-                      "text",
-                      "text",
-                      "numeric",
-                      "numeric",
-                    ]}
-                    headings={[
-                      "Product",
-                      "SKU",
-                      "Reason",
-                      "Count",
-                      "Qty Returned",
-                    ]}
-                    rows={productReasons.map((r) => [
-                      r.product,
-                      r.sku,
-                      r.reason,
-                      r.count,
-                      r.quantity,
-                    ])}
-                  />
-                ) : (
-                  <Text tone="subdued">No return reason data for this period.</Text>
-                )}
-              </BlockStack>
-            </Card>
-          </Layout.Section>
-        </Layout>
+          <s-section>
+            <s-stack gap="400">
+              <s-text variant="headingMd" as="h2">
+                Return Reasons by Product
+              </s-text>
+              {productReasons.length > 0 ? (
+                <SimpleTable
+                  columnContentTypes={[
+                    "text",
+                    "text",
+                    "text",
+                    "numeric",
+                    "numeric",
+                  ]}
+                  headings={[
+                    "Product",
+                    "SKU",
+                    "Reason",
+                    "Count",
+                    "Qty Returned",
+                  ]}
+                  rows={productReasons.map((r) => [
+                    r.product,
+                    r.sku,
+                    r.reason,
+                    r.count,
+                    r.quantity,
+                  ])}
+                />
+              ) : (
+                <s-text tone="subdued">No return reason data for this period.</s-text>
+              )}
+            </s-stack>
+          </s-section>
+        </s-stack>
         </>
         )}
-        </BlockStack>
-      </Page>
+        </s-stack>
+      </s-page>
     </>
   );
 }

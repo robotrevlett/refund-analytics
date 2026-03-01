@@ -1,16 +1,5 @@
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate } from "@remix-run/react";
-import {
-  Page,
-  Layout,
-  Card,
-  BlockStack,
-  Text,
-  DataTable,
-  Box,
-  InlineGrid,
-  EmptyState,
-} from "@shopify/polaris";
 import { useCallback, useState } from "react";
 import { authenticate } from "../shopify.server.js";
 import { getProductRefunds, getTopRefundedProducts } from "../models/refund.server.js";
@@ -37,6 +26,48 @@ export const loader = async ({ request }) => {
 
   return json({ topProducts, productRefunds, productReasons, days, currency, syncStatus });
 };
+
+function SimpleTable({ headings, rows, columnContentTypes }) {
+  if (!rows || rows.length === 0) return null;
+  return (
+    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead>
+        <tr>
+          {headings.map((h, i) => (
+            <th
+              key={i}
+              style={{
+                textAlign: columnContentTypes?.[i] === "numeric" ? "right" : "left",
+                padding: "8px",
+                borderBottom: "1px solid var(--p-color-border)",
+              }}
+            >
+              {h}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, ri) => (
+          <tr key={ri}>
+            {row.map((cell, ci) => (
+              <td
+                key={ci}
+                style={{
+                  textAlign: columnContentTypes?.[ci] === "numeric" ? "right" : "left",
+                  padding: "8px",
+                  borderBottom: "1px solid var(--p-color-border)",
+                }}
+              >
+                {cell}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
 
 export default function ProductsPage() {
   const { topProducts, productRefunds, productReasons, days, currency, syncStatus } = useLoaderData();
@@ -67,120 +98,115 @@ export default function ProductsPage() {
   return (
     <>
       <AppBanners />
-      <Page title="Product Refund Breakdown" backAction={{ url: "/app" }}>
-        <BlockStack gap="500">
+      <s-page title="Product Refund Breakdown" back-action-url="/app">
+        <s-stack gap="500">
         {syncStatus.status === "pending" && topProducts.length === 0 ? (
-          <Card>
-            <EmptyState
-              heading="No product refund data"
-              action={{ content: "Sync order data", url: "/app/sync" }}
-            >
+          <s-section>
+            <s-stack gap="400">
+              <s-text variant="headingMd" as="h2">No product refund data</s-text>
               <p>Sync your Shopify orders to see product-level refund breakdowns.</p>
-            </EmptyState>
-          </Card>
+              <s-button
+                ref={(el) => {
+                  if (el) el.addEventListener("click", () => navigate("/app/sync"));
+                }}
+              >
+                Sync order data
+              </s-button>
+            </s-stack>
+          </s-section>
         ) : (
         <>
-        <Box paddingInlineEnd="300">
-          <InlineGrid columns="1fr auto" alignItems="center">
-            <Text variant="headingMd" as="h2">By Product</Text>
+        <s-box padding-inline-end="300">
+          <s-grid columns="1fr auto" align-items="center">
+            <s-text variant="headingMd" as="h2">By Product</s-text>
             <DateRangeSelector days={days} onDaysChange={handleDaysChange} />
-          </InlineGrid>
-        </Box>
+          </s-grid>
+        </s-box>
 
-        <Layout>
-          <Layout.Section>
-            <Card>
-              <BlockStack gap="400">
-                <Text variant="headingMd" as="h2">
-                  Top Refunded Products
-                </Text>
-                {sortedProducts.length > 0 ? (
-                  <DataTable
-                    columnContentTypes={["text", "numeric", "numeric"]}
-                    headings={["Product", "Refund Count", "Refund Amount"]}
-                    rows={sortedProducts.map((p) => [
-                      p.sku ? `${p.title} (${p.sku})` : p.title,
-                      p.count,
-                      formatCurrency(p.amount),
-                    ])}
-                    sortable={[false, true, true]}
-                    defaultSortDirection="descending"
-                    initialSortColumnIndex={2}
-                    onSort={handleSort}
-                  />
-                ) : (
-                  <Text tone="subdued">No refund data for this period.</Text>
-                )}
-              </BlockStack>
-            </Card>
-          </Layout.Section>
+        <s-stack gap="500">
+          <s-section>
+            <s-stack gap="400">
+              <s-text variant="headingMd" as="h2">
+                Top Refunded Products
+              </s-text>
+              {sortedProducts.length > 0 ? (
+                <SimpleTable
+                  columnContentTypes={["text", "numeric", "numeric"]}
+                  headings={["Product", "Refund Count", "Refund Amount"]}
+                  rows={sortedProducts.map((p) => [
+                    p.sku ? `${p.title} (${p.sku})` : p.title,
+                    p.count,
+                    formatCurrency(p.amount),
+                  ])}
+                />
+              ) : (
+                <s-text tone="subdued">No refund data for this period.</s-text>
+              )}
+            </s-stack>
+          </s-section>
 
           {productReasons.length > 0 && (
-            <Layout.Section>
-              <Card>
-                <BlockStack gap="400">
-                  <Text variant="headingMd" as="h2">
-                    Return Reasons by Product
-                  </Text>
-                  <DataTable
-                    columnContentTypes={["text", "text", "text", "numeric"]}
-                    headings={["Product", "SKU", "Reason", "Quantity"]}
-                    rows={productReasons.map((r) => [
-                      r.product,
-                      r.sku,
-                      r.reason,
-                      r.quantity,
-                    ])}
-                  />
-                </BlockStack>
-              </Card>
-            </Layout.Section>
+            <s-section>
+              <s-stack gap="400">
+                <s-text variant="headingMd" as="h2">
+                  Return Reasons by Product
+                </s-text>
+                <SimpleTable
+                  columnContentTypes={["text", "text", "text", "numeric"]}
+                  headings={["Product", "SKU", "Reason", "Quantity"]}
+                  rows={productReasons.map((r) => [
+                    r.product,
+                    r.sku,
+                    r.reason,
+                    r.quantity,
+                  ])}
+                />
+              </s-stack>
+            </s-section>
           )}
 
-          <Layout.Section>
-            <Card>
-              <BlockStack gap="400">
-                <Text variant="headingMd" as="h2">
-                  Refund Details
-                </Text>
-                {productRefunds.length > 0 ? (
-                  <DataTable
-                    columnContentTypes={[
-                      "text",
-                      "text",
-                      "text",
-                      "numeric",
-                      "numeric",
-                      "text",
-                    ]}
-                    headings={[
-                      "Product",
-                      "SKU",
-                      "Order",
-                      "Qty",
-                      "Amount",
-                      "Date",
-                    ]}
-                    rows={productRefunds.map((r) => [
-                      r.product,
-                      r.sku,
-                      r.orderName,
-                      r.quantity,
-                      formatCurrency(r.amount),
-                      r.date,
-                    ])}
-                  />
-                ) : (
-                  <Text tone="subdued">No refund data for this period.</Text>
-                )}
-              </BlockStack>
-            </Card>
-          </Layout.Section>
-        </Layout>
+          <s-section>
+            <s-stack gap="400">
+              <s-text variant="headingMd" as="h2">
+                Refund Details
+              </s-text>
+              {productRefunds.length > 0 ? (
+                <SimpleTable
+                  columnContentTypes={[
+                    "text",
+                    "text",
+                    "text",
+                    "numeric",
+                    "numeric",
+                    "text",
+                  ]}
+                  headings={[
+                    "Product",
+                    "SKU",
+                    "Order",
+                    "Qty",
+                    "Amount",
+                    "Date",
+                  ]}
+                  rows={productRefunds.map((r) => [
+                    r.product,
+                    r.sku,
+                    r.orderName,
+                    r.quantity,
+                    formatCurrency(r.amount),
+                    r.date,
+                  ])}
+                />
+              ) : (
+                <s-text tone="subdued">No refund data for this period.</s-text>
+              )}
+            </s-stack>
+          </s-section>
+        </s-stack>
         </>
         )}
-        </BlockStack>
-      </Page>
+        </s-stack>
+      </s-page>
     </>
   );
 }

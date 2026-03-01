@@ -1,16 +1,5 @@
 import { json } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
-import {
-  Page,
-  Layout,
-  Card,
-  BlockStack,
-  Text,
-  Link,
-  InlineGrid,
-  Badge,
-  Box,
-} from "@shopify/polaris";
+import { useLoaderData, Link } from "@remix-run/react";
 import { authenticate } from "../shopify.server.js";
 import { getShopSyncStatus } from "../models/sync.server.js";
 import db from "../db.server.js";
@@ -42,7 +31,7 @@ function syncStatusBadge(status) {
     failed: { tone: "critical", label: "Failed" },
   };
   const { tone, label } = map[status] || { tone: "default", label: status };
-  return <Badge tone={tone}>{label}</Badge>;
+  return <s-badge tone={tone}>{label}</s-badge>;
 }
 
 export default function SettingsPage() {
@@ -51,78 +40,70 @@ export default function SettingsPage() {
   return (
     <>
       <AppBanners />
-      <Page title="Settings" backAction={{ url: "/app" }}>
-        <Layout>
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="400">
-              <Text variant="headingMd" as="h2">Store Info</Text>
-              <InlineGrid columns={2} gap="200">
-                <Text tone="subdued">Store</Text>
-                <Text>{shop}</Text>
-                <Text tone="subdued">Sync status</Text>
-                <Box>{syncStatusBadge(syncStatus.status)}</Box>
-                <Text tone="subdued">Last synced</Text>
-                <Text>
+      <s-page title="Settings" back-action-url="/app">
+        <s-stack gap="500">
+          <s-section>
+            <s-stack gap="400">
+              <s-text variant="headingMd" as="h2">Store Info</s-text>
+              <s-grid columns="2" gap="200">
+                <s-text tone="subdued">Store</s-text>
+                <s-text>{shop}</s-text>
+                <s-text tone="subdued">Sync status</s-text>
+                <s-box>{syncStatusBadge(syncStatus.status)}</s-box>
+                <s-text tone="subdued">Last synced</s-text>
+                <s-text>
                   {syncStatus.lastSyncAt
                     ? new Date(syncStatus.lastSyncAt).toLocaleString()
                     : "Never"}
-                </Text>
-              </InlineGrid>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
+                </s-text>
+              </s-grid>
+            </s-stack>
+          </s-section>
 
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="400">
-              <Text variant="headingMd" as="h2">Data Summary</Text>
-              <InlineGrid columns={2} gap="200">
-                <Text tone="subdued">Orders tracked</Text>
-                <Text>{dataCounts.orders.toLocaleString()}</Text>
-                <Text tone="subdued">Refunds tracked</Text>
-                <Text>{dataCounts.refunds.toLocaleString()}</Text>
-                <Text tone="subdued">Return reasons tracked</Text>
-                <Text>{dataCounts.returnReasons.toLocaleString()}</Text>
-              </InlineGrid>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
+          <s-section>
+            <s-stack gap="400">
+              <s-text variant="headingMd" as="h2">Data Summary</s-text>
+              <s-grid columns="2" gap="200">
+                <s-text tone="subdued">Orders tracked</s-text>
+                <s-text>{dataCounts.orders.toLocaleString()}</s-text>
+                <s-text tone="subdued">Refunds tracked</s-text>
+                <s-text>{dataCounts.refunds.toLocaleString()}</s-text>
+                <s-text tone="subdued">Return reasons tracked</s-text>
+                <s-text>{dataCounts.returnReasons.toLocaleString()}</s-text>
+              </s-grid>
+            </s-stack>
+          </s-section>
 
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="400">
-              <Text variant="headingMd" as="h2">About</Text>
-              <Text>
+          <s-section>
+            <s-stack gap="400">
+              <s-text variant="headingMd" as="h2">About</s-text>
+              <s-text>
                 Refund &amp; Return Analytics shows your real revenue after
                 refunds. Refunds are grouped by refund date (not order date) so
                 you see the true impact on each period's revenue.
-              </Text>
-              <Text tone="subdued">
+              </s-text>
+              <s-text tone="subdued">
                 Data syncs via Shopify Bulk Operations and stays up to date via
                 webhooks. Visit the{" "}
-                <Link url="/app/sync">Data Sync</Link> page to trigger a manual
+                <Link to="/app/sync">Data Sync</Link> page to trigger a manual
                 sync.
-              </Text>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
+              </s-text>
+            </s-stack>
+          </s-section>
 
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="400">
-              <Text variant="headingMd" as="h2">Legal</Text>
-              <Text>
-                <Link url="/app/privacy">Privacy Policy</Link>
-              </Text>
-              <Text>
-                <Link url="/app/terms">Terms of Service</Link>
-              </Text>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-        </Layout>
-      </Page>
+          <s-section>
+            <s-stack gap="400">
+              <s-text variant="headingMd" as="h2">Legal</s-text>
+              <s-text>
+                <Link to="/app/privacy">Privacy Policy</Link>
+              </s-text>
+              <s-text>
+                <Link to="/app/terms">Terms of Service</Link>
+              </s-text>
+            </s-stack>
+          </s-section>
+        </s-stack>
+      </s-page>
     </>
   );
 }

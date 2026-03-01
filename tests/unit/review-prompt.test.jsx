@@ -1,12 +1,7 @@
 import React from "react";
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { PolarisTestProvider } from "@shopify/polaris";
+import { render, cleanup, act } from "@testing-library/react";
 import { ReviewPrompt } from "../../app/components/ReviewPrompt.jsx";
-
-function renderWithPolaris(ui) {
-  return render(<PolarisTestProvider>{ui}</PolarisTestProvider>);
-}
 
 function daysAgo(n) {
   const d = new Date();
@@ -24,39 +19,43 @@ describe("ReviewPrompt", () => {
   });
 
   test("does not render without installedAt", () => {
-    renderWithPolaris(<ReviewPrompt installedAt={null} />);
-    expect(screen.queryByText(/enjoying/i)).toBeNull();
+    const { container } = render(<ReviewPrompt installedAt={null} />);
+    expect(container.querySelector("s-banner")).toBeNull();
   });
 
   test("does not render if installed less than 14 days ago", () => {
-    renderWithPolaris(<ReviewPrompt installedAt={daysAgo(7)} />);
-    expect(screen.queryByText(/enjoying/i)).toBeNull();
+    const { container } = render(<ReviewPrompt installedAt={daysAgo(7)} />);
+    expect(container.querySelector("s-banner")).toBeNull();
   });
 
   test("renders after 14 days", () => {
-    renderWithPolaris(<ReviewPrompt installedAt={daysAgo(15)} />);
-    expect(screen.getByText(/enjoying/i)).toBeTruthy();
-    expect(screen.getByText(/leave a review/i)).toBeTruthy();
+    const { container } = render(<ReviewPrompt installedAt={daysAgo(15)} />);
+    const banner = container.querySelector("s-banner");
+    expect(banner).toBeTruthy();
+    expect(banner.getAttribute("title")).toContain("Enjoying");
+    expect(container.textContent).toContain("Leave a review");
   });
 
   test("dismiss increments counter and hides", () => {
-    renderWithPolaris(<ReviewPrompt installedAt={daysAgo(15)} />);
-    const dismissButton = screen.getByRole("button");
-    fireEvent.click(dismissButton);
+    const { container } = render(<ReviewPrompt installedAt={daysAgo(15)} />);
+    const banner = container.querySelector("s-banner");
+    act(() => {
+      banner.dispatchEvent(new Event("dismiss"));
+    });
 
-    expect(screen.queryByText(/enjoying/i)).toBeNull();
+    expect(container.querySelector("s-banner")).toBeNull();
     expect(localStorage.getItem("refund-analytics-review-prompt-dismissals")).toBe("1");
   });
 
   test("does not render after 3 dismissals", () => {
     localStorage.setItem("refund-analytics-review-prompt-dismissals", "3");
-    renderWithPolaris(<ReviewPrompt installedAt={daysAgo(30)} />);
-    expect(screen.queryByText(/enjoying/i)).toBeNull();
+    const { container } = render(<ReviewPrompt installedAt={daysAgo(30)} />);
+    expect(container.querySelector("s-banner")).toBeNull();
   });
 
   test("renders on 2nd dismissal (under max of 3)", () => {
     localStorage.setItem("refund-analytics-review-prompt-dismissals", "2");
-    renderWithPolaris(<ReviewPrompt installedAt={daysAgo(20)} />);
-    expect(screen.getByText(/enjoying/i)).toBeTruthy();
+    const { container } = render(<ReviewPrompt installedAt={daysAgo(20)} />);
+    expect(container.querySelector("s-banner")).toBeTruthy();
   });
 });

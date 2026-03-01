@@ -1,5 +1,4 @@
-import { Banner } from "@shopify/polaris";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 const DISMISSED_KEY = "refund-analytics-beta-banner-dismissed";
 const FEEDBACK_URL = "https://forms.gle/refund-analytics-feedback";
@@ -22,14 +21,24 @@ export function BetaBanner() {
     }
   }, []);
 
+  const bannerRef = useRef(null);
+
+  useEffect(() => {
+    const el = bannerRef.current;
+    if (!el) return;
+    el.addEventListener("dismiss", handleDismiss);
+    return () => el.removeEventListener("dismiss", handleDismiss);
+  }, [handleDismiss]);
+
   if (dismissed) return null;
 
   return (
     <div style={{ padding: "16px 16px 0" }}>
-      <Banner
+      <s-banner
+        ref={bannerRef}
         title="Beta — You're an early tester!"
         tone="info"
-        onDismiss={handleDismiss}
+        dismissible
       >
         <p>
           We'd love your feedback.{" "}
@@ -38,7 +47,7 @@ export function BetaBanner() {
           </a>{" "}
           to help shape the product.
         </p>
-      </Banner>
+      </s-banner>
     </div>
   );
 }

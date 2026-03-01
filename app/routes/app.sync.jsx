@@ -1,16 +1,6 @@
 import { json } from "@remix-run/node";
 import { useLoaderData, useSubmit, useNavigation } from "@remix-run/react";
-import {
-  Page,
-  Layout,
-  Card,
-  BlockStack,
-  Text,
-  Button,
-  Banner,
-  Spinner,
-  InlineStack,
-} from "@shopify/polaris";
+import { useRef, useEffect } from "react";
 import { authenticate } from "../shopify.server.js";
 import {
   getShopSyncStatus,
@@ -67,73 +57,80 @@ export default function SyncPage() {
     submit({}, { method: "POST" });
   };
 
+  const buttonRef = useRef(null);
+
+  useEffect(() => {
+    const el = buttonRef.current;
+    if (!el) return;
+    const handler = () => handleSync();
+    el.addEventListener("click", handler);
+    return () => el.removeEventListener("click", handler);
+  });
+
   return (
     <>
       <AppBanners />
-      <Page title="Data Sync" backAction={{ url: "/app" }}>
-        <Layout>
-        <Layout.Section>
-          <Card>
-            <BlockStack gap="400">
-              <Text variant="headingMd" as="h2">Sync Status</Text>
+      <s-page title="Data Sync" back-action-url="/app">
+        <s-stack gap="500">
+          <s-section>
+            <s-stack gap="400">
+              <s-text variant="headingMd" as="h2">Sync Status</s-text>
 
               {syncStatus.status === "pending" && (
-                <Banner tone="warning">
+                <s-banner tone="warning">
                   <p>
                     No data has been synced yet. Start a sync to pull your order
                     and refund data from Shopify.
                   </p>
-                </Banner>
+                </s-banner>
               )}
 
               {syncStatus.status === "running" && (
-                <BlockStack gap="200">
-                  <InlineStack gap="200" blockAlign="center">
-                    <Spinner size="small" />
-                    <Text>Sync in progress...</Text>
-                  </InlineStack>
-                  <Text tone="subdued" variant="bodySm">
+                <s-stack gap="200">
+                  <s-stack direction="horizontal" gap="200" block-align="center">
+                    <s-spinner size="small" />
+                    <s-text>Sync in progress...</s-text>
+                  </s-stack>
+                  <s-text tone="subdued" variant="bodySm">
                     Large stores may take a few minutes. Refresh to check
                     progress.
-                  </Text>
-                </BlockStack>
+                  </s-text>
+                </s-stack>
               )}
 
               {syncStatus.status === "completed" && (
-                <Banner tone="success">
+                <s-banner tone="success">
                   <p>
                     Last synced:{" "}
                     {syncStatus.lastSyncAt
                       ? new Date(syncStatus.lastSyncAt).toLocaleString()
                       : "Never"}
                   </p>
-                </Banner>
+                </s-banner>
               )}
 
               {syncStatus.status === "failed" && (
-                <Banner tone="critical">
+                <s-banner tone="critical">
                   <p>
                     The last sync failed. Try again or contact support if the
                     issue persists.
                   </p>
-                </Banner>
+                </s-banner>
               )}
 
-              <Button
+              <s-button
+                ref={buttonRef}
                 variant="primary"
-                onClick={handleSync}
-                loading={isSubmitting}
-                disabled={syncStatus.status === "running"}
+                disabled={isSubmitting || syncStatus.status === "running" || undefined}
               >
                 {syncStatus.status === "pending"
                   ? "Start Initial Sync"
                   : "Re-sync Data"}
-              </Button>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-        </Layout>
-      </Page>
+              </s-button>
+            </s-stack>
+          </s-section>
+        </s-stack>
+      </s-page>
     </>
   );
 }

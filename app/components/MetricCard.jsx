@@ -1,16 +1,14 @@
-import { Card, BlockStack, Text } from "@shopify/polaris";
-
 export function MetricCard({ title, value, tone }) {
   return (
-    <Card>
-      <BlockStack gap="200">
-        <Text variant="bodySm" as="p" tone="subdued">
+    <s-section>
+      <s-stack gap="200">
+        <s-text variant="bodySm" as="p" tone="subdued">
           {title}
-        </Text>
-        <Text variant="headingXl" as="p" tone={tone}>
+        </s-text>
+        <s-text variant="headingXl" as="p" tone={tone}>
           {value}
-        </Text>
-      </BlockStack>
-    </Card>
+        </s-text>
+      </s-stack>
+    </s-section>
   );
 }

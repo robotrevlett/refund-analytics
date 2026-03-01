@@ -1,5 +1,4 @@
-import { Select, InlineGrid, TextField, InlineStack } from "@shopify/polaris";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 const PRESET_OPTIONS = [
   { label: "Last 7 days", value: "7" },
@@ -34,34 +33,62 @@ export function DateRangeSelector({ days, onDaysChange }) {
     }
   }, [customDays, onDaysChange]);
 
+  const selectRef = useRef(null);
+  const textFieldRef = useRef(null);
+
+  useEffect(() => {
+    const el = selectRef.current;
+    if (!el) return;
+    const handler = (e) => handleSelectChange(e.target.value);
+    el.addEventListener("change", handler);
+    return () => el.removeEventListener("change", handler);
+  }, [handleSelectChange]);
+
+  useEffect(() => {
+    const el = textFieldRef.current;
+    if (!el) return;
+    const inputHandler = (e) => handleCustomChange(e.target.value);
+    const blurHandler = () => handleCustomBlur();
+    el.addEventListener("input", inputHandler);
+    el.addEventListener("blur", blurHandler);
+    return () => {
+      el.removeEventListener("input", inputHandler);
+      el.removeEventListener("blur", blurHandler);
+    };
+  }, [handleCustomChange, handleCustomBlur]);
+
   return (
-    <InlineStack gap="200" blockAlign="end">
-      <Select
+    <s-stack direction="horizontal" gap="200" block-align="end">
+      <s-select
+        ref={selectRef}
         label="Date range"
-        labelHidden
-        options={PRESET_OPTIONS}
+        label-hidden
         value={mode}
-        onChange={handleSelectChange}
-      />
+      >
+        {PRESET_OPTIONS.map((opt) => (
+          <s-option key={opt.value} value={opt.value}>
+            {opt.label}
+          </s-option>
+        ))}
+      </s-select>
       {mode === "custom" && (
-        <TextField
-          label="Days"
-          labelHidden
-          type="number"
-          value={customDays}
-          onChange={handleCustomChange}
-          onBlur={handleCustomBlur}
-          autoComplete="off"
-          min={1}
-          max={365}
-          placeholder="e.g. 60"
-          connectedRight={
-            <span style={{ whiteSpace: "nowrap", padding: "6px 8px" }}>
-              days
-            </span>
-          }
-        />
+        <s-stack direction="horizontal" gap="100" block-align="end">
+          <s-text-field
+            ref={textFieldRef}
+            label="Days"
+            label-hidden
+            type="number"
+            value={customDays}
+            auto-complete="off"
+            min="1"
+            max="365"
+            placeholder="e.g. 60"
+          />
+          <span style={{ whiteSpace: "nowrap", padding: "6px 8px" }}>
+            days
+          </span>
+        </s-stack>
       )}
-    </InlineStack>
+    </s-stack>
   );
 }

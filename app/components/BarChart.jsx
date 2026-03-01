@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Box } from "@shopify/polaris";
 import {
   BarChart as RechartsBarChart,
   Bar,
@@ -37,7 +36,7 @@ export function BarChart({ data, formatValue }) {
   if (!data || data.length === 0) return null;
 
   return (
-    <ClientOnly fallback={<Box minHeight="300px" />}>
+    <ClientOnly fallback={<s-box min-height="300px" />}>
       {() => (
         <ResponsiveContainer width="100%" height={300}>
           <RechartsBarChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
