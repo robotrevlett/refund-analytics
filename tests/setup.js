@@ -1,20 +1,6 @@
 import { beforeAll, afterAll, afterEach } from "vitest";
 import { PrismaClient } from "@prisma/client";
 
-// Mock window.matchMedia for Polaris (called at module load time)
-if (typeof window !== "undefined" && !window.matchMedia) {
-  window.matchMedia = (query) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: () => {},
-    removeListener: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    dispatchEvent: () => false,
-  });
-}
-
 // Mock localStorage for jsdom (unavailable for opaque origins)
 if (typeof globalThis !== "undefined") {
   const store = new Map();

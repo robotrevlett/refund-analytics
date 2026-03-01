@@ -1,5 +1,4 @@
-import { Banner } from "@shopify/polaris";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 const DISMISS_COUNT_KEY = "refund-analytics-review-prompt-dismissals";
 const MAX_SHOWS = 3;
@@ -32,14 +31,24 @@ export function ReviewPrompt({ installedAt }) {
     }
   }, []);
 
+  const bannerRef = useRef(null);
+
+  useEffect(() => {
+    const el = bannerRef.current;
+    if (!el) return;
+    el.addEventListener("dismiss", handleDismiss);
+    return () => el.removeEventListener("dismiss", handleDismiss);
+  }, [handleDismiss]);
+
   if (!visible) return null;
 
   return (
     <div style={{ padding: "16px 16px 0" }}>
-      <Banner
+      <s-banner
+        ref={bannerRef}
         title="Enjoying Refund Analytics?"
         tone="success"
-        onDismiss={handleDismiss}
+        dismissible
       >
         <p>
           A review helps other merchants find us.{" "}
@@ -51,7 +60,7 @@ export function ReviewPrompt({ installedAt }) {
             Leave a review on the Shopify App Store
           </a>
         </p>
-      </Banner>
+      </s-banner>
     </div>
   );
 }
