@@ -87,10 +87,13 @@ const { data } = await response.json();
 **Webhook handling** uses authenticate.webhook:
 ```js
 export async function action({ request }) {
-  const { topic, shop, payload } = await authenticate.webhook(request);
+  const { topic, shop, payload, admin } = await authenticate.webhook(request);
   // topic is SCREAMING_SNAKE_CASE: "REFUNDS_CREATE", "APP_UNINSTALLED"
+  // admin is the authenticated GraphQL client (may be null for some webhook types)
 }
 ```
+
+**Webhook enrichment** — Shopify's `refunds/create` webhook payload lacks return data (`hasReturn`, `returnId`, `reason`). After the initial refund upsert, the handler fires follow-up GraphQL queries via `fetchSingleRefundDetail` and `fetchSingleReturnDetail` (exported from `sync.server.js`) to enrich the record. This is best-effort: if enrichment fails, the record still exists and the next bulk sync fills in missing data.
 
 ### Data Sync (Critical Constraint)
 
@@ -169,7 +172,7 @@ mutation { bulkOperationRunQuery(query: "{ orders { edges { node { ... } } } }")
 - `tests/setup.js` mocks `window.matchMedia` (for Polaris) and `localStorage` (for jsdom)
 - Default `DATABASE_URL` in vite.config.js points to `localhost:5432/refund_analytics_test`; override via `TEST_DATABASE_URL`
 - Migrations must be applied before running tests (`npx prisma migrate deploy`)
-- ~80 tests across 9 files (3 JSX component suites currently broken — Polaris v12 migration)
+- ~103 tests across 11 files
 - Run: `docker compose up -d && npm test`
 
 ### E2E (Playwright)
@@ -181,7 +184,7 @@ mutation { bulkOperationRunQuery(query: "{ orders { edges { node { ... } } } }")
 - Run: `npm run test:e2e`
 
 ### Test Data
-- Unit fixtures at `tests/fixtures/` — orders, refunds, returns, JSONL samples
+- Unit fixtures at `tests/fixtures/` — orders, refunds, returns, JSONL samples, webhook enrichment responses
 - E2E seed at `tests/e2e/seed.js` — 20 orders, 8 refunds, 6 return reasons, shop installed 15 days ago
 - Covers edge cases: partial refunds, multi-refunds, $0 restocks, multi-currency, refund date != order date
 
@@ -195,6 +198,7 @@ Run `npm run test:e2e` for e2e tests (requires the test server or uses webServer
 3. Per-product refund sums equal total refunds
 4. JSONL parser gracefully handles malformed/missing data
 5. Webhook payloads correctly map to DB records
+6. Webhook-created refunds have field parity with bulk-synced refunds (`hasReturn`, `returnId`, `reason`)
 
 ## Style Guide
 

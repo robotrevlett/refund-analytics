@@ -1,0 +1,29 @@
+{
+  "data": {
+    "node": {
+      "id": "gid://shopify/Refund/9999",
+      "createdAt": "2026-02-20T14:30:00-05:00",
+      "note": "Customer requested refund — sizing issue",
+      "totalRefundedSet": {
+        "shopMoney": { "amount": "49.99", "currencyCode": "USD" }
+      },
+      "order": { "id": "gid://shopify/Order/1001", "name": "#1001" },
+      "return": null,
+      "refundLineItems": {
+        "edges": [
+          {
+            "node": {
+              "quantity": 1,
+              "restockType": "RETURN",
+              "subtotalSet": { "shopMoney": { "amount": "29.99" } },
+              "lineItem": { "title": "Classic Cotton T-Shirt", "sku": "APP-TSH-001" }
+            }
+          }
+        ]
+      },
+      "orderAdjustments": {
+        "edges": []
+      }
+    }
+  }
+}

@@ -1,6 +1,12 @@
 import { authenticate } from "../shopify.server.js";
 import db from "../db.server.js";
-import { pollBulkOperation, processCompletedSync } from "../models/sync.server.js";
+import {
+  pollBulkOperation,
+  processCompletedSync,
+  fetchSingleRefundDetail,
+  fetchSingleReturnDetail,
+  saveReturnReasons,
+} from "../models/sync.server.js";
 
 export const action = async ({ request }) => {
   const { topic, shop, payload, admin } = await authenticate.webhook(request);
@@ -16,7 +22,7 @@ export const action = async ({ request }) => {
 
     case "REFUNDS_CREATE":
       try {
-        await handleRefundCreate(shop, payload);
+        await handleRefundCreate(shop, payload, admin);
       } catch (error) {
         console.error(`Failed to handle refund webhook for ${shop}:`, error);
       }
@@ -90,7 +96,7 @@ export const action = async ({ request }) => {
   return new Response(null, { status: 200 });
 };
 
-async function handleRefundCreate(shop, payload) {
+async function handleRefundCreate(shop, payload, admin) {
   const { id, order_id, created_at, transactions, refund_line_items, note } =
     payload;
 
@@ -118,8 +124,10 @@ async function handleRefundCreate(shop, payload) {
     select: { name: true },
   });
 
+  const refundGid = `gid://shopify/Refund/${id}`;
+
   await db.refundRecord.upsert({
-    where: { id: `gid://shopify/Refund/${id}` },
+    where: { id: refundGid },
     update: {
       amount: totalAmount,
       note: note || null,
@@ -127,7 +135,7 @@ async function handleRefundCreate(shop, payload) {
       currency,
     },
     create: {
-      id: `gid://shopify/Refund/${id}`,
+      id: refundGid,
       shop,
       orderId: orderGid,
       orderName: existingOrder?.name || `#${order_id}`,
@@ -138,6 +146,39 @@ async function handleRefundCreate(shop, payload) {
       lineItems: JSON.stringify(lineItems),
     },
   });
+
+  // Enrich with return data if admin client is available.
+  // This is best-effort — if it fails, the record already exists from the
+  // webhook payload and the next bulk sync will fill in missing data.
+  if (!admin) return;
+
+  try {
+    const detail = await fetchSingleRefundDetail(admin, refundGid);
+    if (!detail) return;
+
+    const reason = detail.orderAdjustments?.edges?.[0]?.node?.reason || null;
+
+    await db.refundRecord.update({
+      where: { id: refundGid },
+      data: {
+        hasReturn: !!detail.return,
+        returnId: detail.return?.id || null,
+        reason,
+      },
+    });
+
+    // If refund has a linked return, fetch and save return reasons
+    if (detail.return?.id) {
+      const returnDetail = await fetchSingleReturnDetail(admin, detail.return.id);
+      if (returnDetail) {
+        await saveReturnReasons(shop, [returnDetail]);
+      }
+    }
+  } catch (error) {
+    // Enrichment failed — record already saved from webhook payload.
+    // Next bulk sync will fill in missing return data.
+    console.warn(`Refund enrichment failed for ${refundGid}:`, error.message);
+  }
 }
 
 async function handleOrderUpdated(shop, payload) {

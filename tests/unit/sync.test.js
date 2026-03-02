@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { parseJSONL, startBulkSync, mapReturnReason, saveReturnReasons } from "../../app/models/sync.server.js";
+import { parseJSONL, startBulkSync, mapReturnReason, saveReturnReasons, fetchSingleRefundDetail, fetchSingleReturnDetail } from "../../app/models/sync.server.js";
 
 const SHOP = "sync-test-store.myshopify.com";
 
@@ -335,5 +335,70 @@ describe("saveReturnReasons", () => {
 
     expect(record.reason).toBe("Unknown");
     expect(record.category).toBe("Other");
+  });
+});
+
+describe("fetchSingleRefundDetail", () => {
+  it("returns node on success", async () => {
+    const mockNode = {
+      id: "gid://shopify/Refund/123",
+      createdAt: "2026-01-01T00:00:00Z",
+      return: { id: "gid://shopify/Return/456" },
+    };
+
+    const admin = {
+      graphql: async (query, { variables }) => {
+        expect(variables.id).toBe("gid://shopify/Refund/123");
+        return {
+          json: async () => ({ data: { node: mockNode } }),
+        };
+      },
+    };
+
+    const result = await fetchSingleRefundDetail(admin, "gid://shopify/Refund/123");
+    expect(result).toEqual(mockNode);
+  });
+
+  it("returns null when node is missing", async () => {
+    const admin = {
+      graphql: async () => ({
+        json: async () => ({ data: { node: null } }),
+      }),
+    };
+
+    const result = await fetchSingleRefundDetail(admin, "gid://shopify/Refund/999");
+    expect(result).toBeNull();
+  });
+});
+
+describe("fetchSingleReturnDetail", () => {
+  it("returns node on success", async () => {
+    const mockNode = {
+      id: "gid://shopify/Return/456",
+      returnLineItems: { edges: [] },
+    };
+
+    const admin = {
+      graphql: async (query, { variables }) => {
+        expect(variables.id).toBe("gid://shopify/Return/456");
+        return {
+          json: async () => ({ data: { node: mockNode } }),
+        };
+      },
+    };
+
+    const result = await fetchSingleReturnDetail(admin, "gid://shopify/Return/456");
+    expect(result).toEqual(mockNode);
+  });
+
+  it("returns null when node is missing", async () => {
+    const admin = {
+      graphql: async () => ({
+        json: async () => ({ data: { node: null } }),
+      }),
+    };
+
+    const result = await fetchSingleReturnDetail(admin, "gid://shopify/Return/999");
+    expect(result).toBeNull();
   });
 });
