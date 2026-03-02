@@ -95,7 +95,7 @@ Shopify Bulk Operations API **cannot nest connections inside list fields**. `Ord
 **Three-phase sync**:
 1. Bulk query: orders + refund summaries via JSONL
 2. Paginated detail: for each refund, fetch line items individually (rate-limited, 4 concurrent)
-3. Return reasons: for refunds linked to returns, fetch return line items with structured reasons
+3. Return reasons: for refunds linked to returns, fetch return line items via `returnReasonDefinition` (handle-based category mapping in `HANDLE_TO_CATEGORY`)
 
 This is the core architectural constraint — do not try to fetch refundLineItems in a bulk operation.
 
@@ -139,7 +139,7 @@ The app supports a **beta mode** (`BETA_MODE=1` env var) for early tester outrea
 - `Refund.orderAdjustments` — structured reason: restock, damage, customer, other
 - `Refund.return` — linked Return record if refund came from a return
 - `Return.returnLineItems` — items being returned with quantities
-- `ReturnReasonDefinition` — new Jan 2026 API for structured return reasons
+- `ReturnLineItem.returnReasonDefinition` — structured return reason object (`handle` + localized `name`), replaces the deprecated `returnReason` enum as of API version 2026-01
 
 ### Bulk Operations
 ```graphql
@@ -165,7 +165,7 @@ mutation { bulkOperationRunQuery(query: "{ orders { edges { node { ... } } } }")
 - `tests/setup.js` mocks `window.matchMedia` (for Polaris) and `localStorage` (for jsdom)
 - Default `DATABASE_URL` in vite.config.js points to `localhost:5432/refund_analytics_test`; override via `TEST_DATABASE_URL`
 - Migrations must be applied before running tests (`npx prisma migrate deploy`)
-- 67 tests across 9 files
+- 78 tests across 9 files
 - Run: `docker compose up -d && npm test`
 
 ### E2E (Playwright)

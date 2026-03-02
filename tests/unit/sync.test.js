@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { parseJSONL, startBulkSync } from "../../app/models/sync.server.js";
+import { parseJSONL, startBulkSync, mapReturnReason, HANDLE_TO_CATEGORY, saveReturnReasons } from "../../app/models/sync.server.js";
 
 const SHOP = "sync-test-store.myshopify.com";
 
@@ -179,5 +179,161 @@ describe("startBulkSync", () => {
 
     const shop = await db.shop.findUnique({ where: { id: newShop } });
     expect(shop.syncStatus).toBe("running");
+  });
+});
+
+describe("mapReturnReason", () => {
+  it("maps known sizing handle to Sizing category", () => {
+    const result = mapReturnReason({ handle: "too-small", name: "Too small" });
+    expect(result).toEqual({ label: "Too small", category: "Sizing" });
+  });
+
+  it("maps known quality handle to Quality category", () => {
+    const result = mapReturnReason({ handle: "defective", name: "Defective" });
+    expect(result).toEqual({ label: "Defective", category: "Quality" });
+  });
+
+  it("maps known preference handle to Preference category", () => {
+    const result = mapReturnReason({ handle: "unwanted", name: "Unwanted" });
+    expect(result).toEqual({ label: "Unwanted", category: "Preference" });
+  });
+
+  it("maps known accuracy handle to Accuracy category", () => {
+    const result = mapReturnReason({ handle: "not-as-described", name: "Not as described" });
+    expect(result).toEqual({ label: "Not as described", category: "Accuracy" });
+  });
+
+  it("maps unknown handle to Other category with API-provided name", () => {
+    const result = mapReturnReason({ handle: "future-new-reason", name: "Some future reason" });
+    expect(result).toEqual({ label: "Some future reason", category: "Other" });
+  });
+
+  it("maps null definition to Unknown label and Other category", () => {
+    const result = mapReturnReason(null);
+    expect(result).toEqual({ label: "Unknown", category: "Other" });
+  });
+
+  it("maps undefined definition to Unknown label and Other category", () => {
+    const result = mapReturnReason(undefined);
+    expect(result).toEqual({ label: "Unknown", category: "Other" });
+  });
+});
+
+describe("saveReturnReasons", () => {
+  const RETURN_SHOP = "return-reason-test.myshopify.com";
+  let db;
+
+  beforeEach(async () => {
+    db = getDb();
+    await db.shop.create({
+      data: { id: RETURN_SHOP, currency: "USD", syncStatus: "completed" },
+    });
+  });
+
+  it("saves return reasons from new API shape with handle and name", async () => {
+    const returnDetails = [
+      {
+        id: "gid://shopify/Return/1",
+        createdAt: "2026-01-15T00:00:00Z",
+        order: { id: "gid://shopify/Order/100" },
+        returnLineItems: {
+          edges: [
+            {
+              node: {
+                id: "gid://shopify/ReturnLineItem/1",
+                quantity: 2,
+                returnReasonDefinition: { handle: "too-small", name: "Too small" },
+                returnReasonNote: "Runs small",
+                customerNote: null,
+                lineItem: { title: "Classic T-Shirt", sku: "TSHIRT-M" },
+              },
+            },
+          ],
+        },
+      },
+    ];
+
+    await saveReturnReasons(RETURN_SHOP, returnDetails);
+
+    const record = await db.returnReasonRecord.findUnique({
+      where: { id: "gid://shopify/ReturnLineItem/1" },
+    });
+
+    expect(record).toBeDefined();
+    expect(record.reason).toBe("Too small");
+    expect(record.category).toBe("Sizing");
+    expect(record.quantity).toBe(2);
+    expect(record.productTitle).toBe("Classic T-Shirt");
+    expect(record.sku).toBe("TSHIRT-M");
+  });
+
+  it("handles return with empty returnLineItems edges", async () => {
+    const returnDetails = [
+      {
+        id: "gid://shopify/Return/2",
+        createdAt: "2026-01-15T00:00:00Z",
+        order: { id: "gid://shopify/Order/200" },
+        returnLineItems: { edges: [] },
+      },
+    ];
+
+    await saveReturnReasons(RETURN_SHOP, returnDetails);
+
+    const count = await db.returnReasonRecord.count({
+      where: { shop: RETURN_SHOP },
+    });
+    expect(count).toBe(0);
+  });
+
+  it("handles return with null returnLineItems", async () => {
+    const returnDetails = [
+      {
+        id: "gid://shopify/Return/3",
+        createdAt: "2026-01-15T00:00:00Z",
+        order: { id: "gid://shopify/Order/300" },
+        returnLineItems: null,
+      },
+    ];
+
+    // Should not throw
+    await saveReturnReasons(RETURN_SHOP, returnDetails);
+
+    const count = await db.returnReasonRecord.count({
+      where: { shop: RETURN_SHOP },
+    });
+    expect(count).toBe(0);
+  });
+
+  it("maps null returnReasonDefinition to Unknown/Other", async () => {
+    const returnDetails = [
+      {
+        id: "gid://shopify/Return/4",
+        createdAt: "2026-01-15T00:00:00Z",
+        order: { id: "gid://shopify/Order/400" },
+        returnLineItems: {
+          edges: [
+            {
+              node: {
+                id: "gid://shopify/ReturnLineItem/4",
+                quantity: 1,
+                returnReasonDefinition: null,
+                returnReasonNote: null,
+                customerNote: null,
+                lineItem: { title: "Mystery Item", sku: null },
+              },
+            },
+          ],
+        },
+      },
+    ];
+
+    await saveReturnReasons(RETURN_SHOP, returnDetails);
+
+    const record = await db.returnReasonRecord.findUnique({
+      where: { id: "gid://shopify/ReturnLineItem/4" },
+    });
+
+    expect(record.reason).toBe("Unknown");
+    expect(record.category).toBe("Other");
   });
 });

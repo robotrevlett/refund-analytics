@@ -126,7 +126,10 @@ const RETURN_DETAIL_QUERY = `#graphql
             node {
               id
               quantity
-              returnReason
+              returnReasonDefinition {
+                handle
+                name
+              }
               returnReasonNote
               customerNote
               lineItem {
@@ -457,37 +460,43 @@ async function fetchReturnDetails(admin, returnIds) {
 }
 
 /**
- * Map Shopify returnReason enum to human-readable labels and categories.
+ * Map Shopify returnReasonDefinition handles to analytics categories.
+ * Unknown handles fall back to "Other" — safe for future Shopify additions.
  */
-const RETURN_REASON_MAP = {
-  SIZE_TOO_SMALL: { label: "Size too small", category: "Sizing" },
-  SIZE_TOO_LARGE: { label: "Size too large", category: "Sizing" },
-  UNWANTED: { label: "Unwanted", category: "Preference" },
-  NOT_AS_DESCRIBED: { label: "Not as described", category: "Accuracy" },
-  WRONG_ITEM: { label: "Wrong item received", category: "Accuracy" },
-  DAMAGED_DEFECTIVE: { label: "Damaged or defective", category: "Quality" },
-  STYLE: { label: "Style", category: "Preference" },
-  COLOR: { label: "Color", category: "Preference" },
-  OTHER: { label: "Other", category: "Other" },
-  UNKNOWN: { label: "Unknown", category: "Other" },
+export const HANDLE_TO_CATEGORY = {
+  "too-small": "Sizing",
+  "too-tight": "Sizing",
+  "too-large": "Sizing",
+  "too-loose": "Sizing",
+  "too-short": "Sizing",
+  "too-long": "Sizing",
+  "unwanted": "Preference",
+  "style": "Preference",
+  "color": "Preference",
+  "not-as-described": "Accuracy",
+  "wrong-item": "Accuracy",
+  "damaged": "Quality",
+  "defective": "Quality",
+  "arrived-late": "Fulfillment",
 };
 
-function mapReturnReason(rawReason) {
-  const mapped = RETURN_REASON_MAP[rawReason];
-  return mapped || { label: rawReason || "Unknown", category: "Other" };
+export function mapReturnReason(definition) {
+  if (!definition) return { label: "Unknown", category: "Other" };
+  const category = HANDLE_TO_CATEGORY[definition.handle] || "Other";
+  return { label: definition.name, category };
 }
 
 /**
  * Save return reason records to the database from fetched Return details.
  */
-async function saveReturnReasons(shop, returnDetails) {
+export async function saveReturnReasons(shop, returnDetails) {
   for (const ret of returnDetails) {
     const orderId = ret.order?.id || "";
     const returnId = ret.id;
     const returnDate = ret.createdAt ? new Date(ret.createdAt) : new Date();
 
     for (const { node } of ret.returnLineItems?.edges || []) {
-      const { label, category } = mapReturnReason(node.returnReason);
+      const { label, category } = mapReturnReason(node.returnReasonDefinition);
 
       await db.returnReasonRecord.upsert({
         where: { id: node.id },
