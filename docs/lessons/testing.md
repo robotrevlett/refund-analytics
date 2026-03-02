@@ -17,6 +17,12 @@ tags: [testing, integration, vitest, patterns]
 - Flaky unique constraint test exists -- intermittent failure on `Shop.create` in parallel test runs.
 - Resolve broken suites before starting the next feature pipeline run. Don't let test debt compound.
 
+## simulateRefundCreate duplication grows with handler complexity
+<!-- issue: #29 | pr: #31 -->
+- `simulateRefundCreate` in `webhooks.test.js` duplicates `handleRefundCreate` logic. Adding enrichment made this duplication worse.
+- If the handler gains another phase (e.g., transaction enrichment), consider exporting `handleRefundCreate` and testing it directly with a mock `authenticate.webhook` return value.
+- For now the duplication is manageable. Watch for divergence on the next webhook handler change.
+
 ## Test count in CLAUDE.md drifts every PR
 <!-- issue: #18 | pr: #27 -->
 - CLAUDE.md listed "67 tests", implementer added 11, doc-writer wrote "78 tests", actual was 80. Second occurrence of this drift (also PR #26).
