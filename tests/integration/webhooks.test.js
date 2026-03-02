@@ -2,6 +2,11 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import {
+  fetchSingleRefundDetail,
+  fetchSingleReturnDetail,
+  saveReturnReasons,
+} from "../../app/models/sync.server.js";
 
 const SHOP = "test-store.myshopify.com";
 
@@ -17,9 +22,10 @@ function loadFixture(name) {
 /**
  * Since the actual webhook handler depends on Shopify's authenticate.webhook,
  * we test the handler logic directly rather than going through the route.
- * This mirrors what handleRefundCreate does in webhooks.jsx.
+ * This mirrors what handleRefundCreate does in webhooks.jsx, including the
+ * enrichment step when an admin client is provided.
  */
-async function simulateRefundCreate(db, shop, payload) {
+async function simulateRefundCreate(db, shop, payload, admin) {
   const { id, order_id, created_at, transactions, refund_line_items, note } =
     payload;
 
@@ -29,6 +35,9 @@ async function simulateRefundCreate(db, shop, payload) {
     .reduce((sum, t) => sum + Number(t.amount || 0), 0)
     .toFixed(2);
 
+  const currency =
+    (transactions || []).find((t) => t.currency)?.currency || "USD";
+
   const lineItems = (refund_line_items || []).map((rli) => ({
     sku: rli.line_item?.sku || "",
     title: rli.line_item?.title || "",
@@ -36,25 +45,57 @@ async function simulateRefundCreate(db, shop, payload) {
     amount: rli.subtotal || "0",
   }));
 
+  const refundGid = `gid://shopify/Refund/${id}`;
+
   await db.refundRecord.upsert({
-    where: { id: `gid://shopify/Refund/${id}` },
+    where: { id: refundGid },
     update: {
       amount: totalAmount,
       note: note || null,
       lineItems: JSON.stringify(lineItems),
+      currency,
     },
     create: {
-      id: `gid://shopify/Refund/${id}`,
+      id: refundGid,
       shop,
       orderId: `gid://shopify/Order/${order_id}`,
       orderName: "",
       refundDate: new Date(created_at),
       amount: totalAmount,
-      currency: "USD",
+      currency,
       note: note || null,
       lineItems: JSON.stringify(lineItems),
     },
   });
+
+  // Enrichment step — mirrors handleRefundCreate in webhooks.jsx
+  if (!admin) return;
+
+  try {
+    const detail = await fetchSingleRefundDetail(admin, refundGid);
+    if (!detail) return;
+
+    const reason = detail.orderAdjustments?.edges?.[0]?.node?.reason || null;
+
+    await db.refundRecord.update({
+      where: { id: refundGid },
+      data: {
+        hasReturn: !!detail.return,
+        returnId: detail.return?.id || null,
+        reason,
+      },
+    });
+
+    if (detail.return?.id) {
+      const returnDetail = await fetchSingleReturnDetail(admin, detail.return.id);
+      if (returnDetail) {
+        await saveReturnReasons(shop, [returnDetail]);
+      }
+    }
+  } catch (error) {
+    // Best-effort enrichment — record already saved
+    console.warn(`Refund enrichment failed for ${refundGid}:`, error.message);
+  }
 }
 
 async function simulateBulkFinish(db, shop, payload) {
@@ -131,6 +172,117 @@ describe("webhook: refunds/create", () => {
       where: { id: "gid://shopify/Refund/9999" },
     });
     expect(Number(record.amount)).toBe(0);
+  });
+});
+
+describe("webhook: refunds/create enrichment", () => {
+  let db;
+
+  beforeEach(async () => {
+    db = getDb();
+  });
+
+  /**
+   * Create a mock admin.graphql that dispatches based on query content.
+   * Returns the appropriate fixture for RefundDetail vs ReturnDetail queries.
+   */
+  function createMockAdmin(refundFixture, returnFixture) {
+    return {
+      graphql: async (query) => ({
+        json: async () => {
+          if (query.includes("RefundDetail")) {
+            return refundFixture;
+          }
+          if (query.includes("ReturnDetail")) {
+            return returnFixture;
+          }
+          throw new Error(`Unexpected query: ${query}`);
+        },
+      }),
+    };
+  }
+
+  it("enriches refund record with return data when return exists", async () => {
+    const payload = loadFixture("refund-create.json");
+    const refundFixture = loadFixture("refund-detail-response.json");
+    const returnFixture = loadFixture("return-detail-response.json");
+    const admin = createMockAdmin(refundFixture, returnFixture);
+
+    await simulateRefundCreate(db, SHOP, payload, admin);
+
+    const record = await db.refundRecord.findUnique({
+      where: { id: "gid://shopify/Refund/9999" },
+    });
+
+    expect(record.hasReturn).toBe(true);
+    expect(record.returnId).toBe("gid://shopify/Return/5001");
+    expect(record.reason).toBe("customer");
+
+    const returnReason = await db.returnReasonRecord.findUnique({
+      where: { id: "gid://shopify/ReturnLineItem/6001" },
+    });
+
+    expect(returnReason).toBeDefined();
+    expect(returnReason.category).toBe("Sizing");
+    expect(returnReason.reason).toBe("Size too small");
+    expect(returnReason.quantity).toBe(1);
+    expect(returnReason.productTitle).toBe("Classic Cotton T-Shirt");
+  });
+
+  it("creates refund record with hasReturn false when refund has no linked return", async () => {
+    const payload = loadFixture("refund-create.json");
+    const refundFixture = loadFixture("refund-detail-no-return.json");
+    const admin = createMockAdmin(refundFixture, null);
+
+    await simulateRefundCreate(db, SHOP, payload, admin);
+
+    const record = await db.refundRecord.findUnique({
+      where: { id: "gid://shopify/Refund/9999" },
+    });
+
+    expect(record.hasReturn).toBe(false);
+    expect(record.returnId).toBeNull();
+    expect(record.reason).toBeNull();
+
+    const returnReasonCount = await db.returnReasonRecord.count({
+      where: { shop: SHOP },
+    });
+    expect(returnReasonCount).toBe(0);
+  });
+
+  it("creates refund record even when enrichment GraphQL call fails", async () => {
+    const payload = loadFixture("refund-create.json");
+    const admin = {
+      graphql: async () => {
+        throw new Error("GraphQL network error");
+      },
+    };
+
+    await simulateRefundCreate(db, SHOP, payload, admin);
+
+    const record = await db.refundRecord.findUnique({
+      where: { id: "gid://shopify/Refund/9999" },
+    });
+
+    expect(record).toBeDefined();
+    expect(record.hasReturn).toBe(false);
+    expect(record.returnId).toBeNull();
+    expect(record.reason).toBeNull();
+  });
+
+  it("creates refund record without enrichment when admin is null", async () => {
+    const payload = loadFixture("refund-create.json");
+
+    await simulateRefundCreate(db, SHOP, payload, null);
+
+    const record = await db.refundRecord.findUnique({
+      where: { id: "gid://shopify/Refund/9999" },
+    });
+
+    expect(record).toBeDefined();
+    expect(record.hasReturn).toBe(false);
+    expect(record.returnId).toBeNull();
+    expect(record.reason).toBeNull();
   });
 });
 
