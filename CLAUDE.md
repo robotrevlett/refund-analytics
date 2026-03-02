@@ -165,7 +165,7 @@ mutation { bulkOperationRunQuery(query: "{ orders { edges { node { ... } } } }")
 - `tests/setup.js` mocks `window.matchMedia` (for Polaris) and `localStorage` (for jsdom)
 - Default `DATABASE_URL` in vite.config.js points to `localhost:5432/refund_analytics_test`; override via `TEST_DATABASE_URL`
 - Migrations must be applied before running tests (`npx prisma migrate deploy`)
-- 78 tests across 9 files
+- ~80 tests across 9 files (3 JSX component suites currently broken — Polaris v12 migration)
 - Run: `docker compose up -d && npm test`
 
 ### E2E (Playwright)
