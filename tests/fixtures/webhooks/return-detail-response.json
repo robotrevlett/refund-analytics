@@ -1,0 +1,23 @@
+{
+  "data": {
+    "node": {
+      "id": "gid://shopify/Return/5001",
+      "createdAt": "2026-02-20T14:00:00-05:00",
+      "order": { "id": "gid://shopify/Order/1001" },
+      "returnLineItems": {
+        "edges": [
+          {
+            "node": {
+              "id": "gid://shopify/ReturnLineItem/6001",
+              "quantity": 1,
+              "returnReasonDefinition": { "handle": "too-small", "name": "Size too small" },
+              "returnReasonNote": "Runs very small",
+              "customerNote": null,
+              "lineItem": { "title": "Classic Cotton T-Shirt", "sku": "APP-TSH-001" }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
