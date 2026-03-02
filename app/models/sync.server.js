@@ -489,7 +489,7 @@ export function mapReturnReason(definition) {
 /**
  * Save return reason records to the database from fetched Return details.
  */
-async function saveReturnReasons(shop, returnDetails) {
+export async function saveReturnReasons(shop, returnDetails) {
   for (const ret of returnDetails) {
     const orderId = ret.order?.id || "";
     const returnId = ret.id;
