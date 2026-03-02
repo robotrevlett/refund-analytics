@@ -387,6 +387,18 @@ export function parseJSONL(text) {
 }
 
 /**
+ * Fetch detail for a single refund by GID.
+ * Returns the node object or null on failure.
+ */
+export async function fetchSingleRefundDetail(admin, refundId) {
+  const response = await admin.graphql(REFUND_DETAIL_QUERY, {
+    variables: { id: refundId },
+  });
+  const { data } = await response.json();
+  return data.node || null;
+}
+
+/**
  * Fetch refund line item details with rate-limited concurrency.
  * Processes refunds in batches to stay within Shopify's GraphQL rate limits.
  */
@@ -397,13 +409,7 @@ async function fetchRefundDetails(admin, refundIds) {
     const batch = refundIds.slice(i, i + REFUND_DETAIL_CONCURRENCY);
 
     const batchResults = await Promise.allSettled(
-      batch.map(async (refundId) => {
-        const response = await admin.graphql(REFUND_DETAIL_QUERY, {
-          variables: { id: refundId },
-        });
-        const { data } = await response.json();
-        return data.node;
-      }),
+      batch.map((refundId) => fetchSingleRefundDetail(admin, refundId)),
     );
 
     for (const result of batchResults) {
@@ -424,6 +430,18 @@ async function fetchRefundDetails(admin, refundIds) {
 }
 
 /**
+ * Fetch detail for a single return by GID.
+ * Returns the node object or null on failure.
+ */
+export async function fetchSingleReturnDetail(admin, returnId) {
+  const response = await admin.graphql(RETURN_DETAIL_QUERY, {
+    variables: { id: returnId },
+  });
+  const { data } = await response.json();
+  return data.node || null;
+}
+
+/**
  * Fetch return line item details with rate-limited concurrency.
  * Uses the same batching strategy as fetchRefundDetails.
  */
@@ -434,13 +452,7 @@ async function fetchReturnDetails(admin, returnIds) {
     const batch = returnIds.slice(i, i + REFUND_DETAIL_CONCURRENCY);
 
     const batchResults = await Promise.allSettled(
-      batch.map(async (returnId) => {
-        const response = await admin.graphql(RETURN_DETAIL_QUERY, {
-          variables: { id: returnId },
-        });
-        const { data } = await response.json();
-        return data.node;
-      }),
+      batch.map((returnId) => fetchSingleReturnDetail(admin, returnId)),
     );
 
     for (const result of batchResults) {
