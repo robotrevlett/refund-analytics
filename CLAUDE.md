@@ -18,6 +18,10 @@ npx prisma migrate dev             # Run migrations
 npx prisma generate                # Regenerate Prisma client after schema changes
 npx prisma studio                  # Visual DB inspector
 
+# Linting & Build
+npm run lint                       # ESLint (extends @remix-run/eslint-config)
+npm run build                      # Remix production build
+
 # Testing
 npm test                           # Run all tests (vitest)
 npx vitest run                     # Run once (CI mode)
