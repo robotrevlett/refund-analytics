@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { parseJSONL, startBulkSync, mapReturnReason, HANDLE_TO_CATEGORY, saveReturnReasons } from "../../app/models/sync.server.js";
+import { parseJSONL, startBulkSync, mapReturnReason, saveReturnReasons } from "../../app/models/sync.server.js";
 
 const SHOP = "sync-test-store.myshopify.com";
 
